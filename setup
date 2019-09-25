@@ -1,0 +1,149 @@
+#! /bin/sh
+
+
+setup_yay() {
+    sudo pacman -S git
+    git clone https://aur.archlinux.org/yay.git ~/yay
+    current_dir=$(pwd)
+    cd ~/yay
+    makepkg -si
+    cd $current_dir
+    rm -rf ~/yay
+}
+
+get_dotfiles() {
+    git clone https://github.com/f12markovic/dotfiles.git ~/.dotfiles
+    git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+}
+
+setup_i3() {
+    sudo pacman curl wget
+    sudo pacman -S i3-gaps i3blocks i3lock-color compton
+    cp ~/.dotfiles/.config/i3/config ~/.config/i3/
+    cp ~/.dotfiles/.config/i3/i3blocks.conf ~/.config/i3/
+    cp -r ~/.dotfiles/.config/i3/scripts ~/.config/i3/
+    cp ~/.dotfiles/.config/compton.conf ~/.config/compton.conf
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/denysdovhan/gnome-terminal-one/master/one-dark.sh)"
+    cp ~/.dotfiles/.config/gtk-3.0/gtk.css ~/.config/gtk-3.0/gtk.css
+    sudo pacman -S alsa alsa-utils alsa-firmware alsa-lib alsa-oss alsa-plugins
+    sudo pacman -S pulseaudio pulseaudio-alsa pavucontrol
+    sudo pacman -S arandr
+    yay -S srandrd
+}
+
+setup_suckless() {
+    cp -r .dotfiles/suckless ~/.config/
+    ~/.config/suckless/suckup
+}
+
+setup_zsh() {
+    sudo pacman -S fzf glib2 zsh zsh-syntax-highlighting
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+    cp -r ~/.dotfiles/.config/zsh-custom-themes/ ~/.config/
+    cp ~/.dotfiles/.zshrc ~/.zshrc
+}
+
+setup_x() {
+    cp ~/.dotfiles/.Xresources ~/.Xresources
+    cp ~/.dotfiles/.extend.Xresources ~/.extend.Xresources
+}
+
+setup_vim() {
+    sudo pacman -S neovim pacman python-neovim python-pynvim python2-pynvim
+    sudo pacman -S ctags hasktags
+    sudo pacman -S jupyter
+    sudo pacman -S clang cmake gdb gdb-common lldb
+    sudo pacman -S python python-flake8-debugger python2-flake8-debugger
+    sudo pacman -S octave
+
+    mkdir -p ~/.vim/bundle
+    git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
+    cp -r ~/.dotfiles/.vim/scripts ~/.vim/
+
+    vim +PlugInstall +qall > /dev/null
+    ~/.vim/bundle/YouCompleteMe/install.py
+    cd ~/.vim/bundle/vimproc.vim && make
+
+    # neovim - vim
+    mkdir -p ~/.config/nvim/
+    ln -s ~/.vimrc ~/.config/nvim/init.vim
+
+    mkdir -p ~/.local/share/nvim/
+    ln -s ~/.vim ~/.local/share/nvim/site
+
+    cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/autoload/vebugger.vim
+    cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/autoload/vebugger/std.vim
+    cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/plugin/vebugger.vim
+    cp -r ~/.dotfiles/.vim/bundle/vim-template ~/.vim/bundle/vim-template
+    cp -r ~/.dotfiles/.vim/syntax ~/.vim/syntax
+    cp -r ~/.dotfiles/.vim/plugin ~/.vim/plugin
+}
+
+setup_zathura() {
+    sudo pacman -S zathura zathura-pdf-mupdf zathura-djvu zathura-ps
+    cp ~/.dotfiles/.config/zathura ~/.config/zathura
+}
+
+setup_su() {
+    user_dir = $HOME
+    sudo ln -s $user_dir/.bashrc /root/.bashrc
+    sudo ln -s $user_dir/.zshrc /root/.zshrc
+    sudo ln -s $user_dir/.oh-my-zsh /root/.oh-my-zsh
+    sudo ln -s $user_dir/.config/zsh-custom-themes /root/.config/zsh-custom-themes
+    sudo ln -s $user_dir/.vimrc /root/.vimrc
+    sudo ln -s $user_dir/.vim /root/.vim
+    sudo mkdir -p /root/.config/nvim/
+    sudo ln -s $user_dir/.vimrc /root/.config/nvim/init.vim
+    sudo mkdir -p /root/.local/share/nvim/
+    sudo ln -s $user_dir/.vim /root/.local/share/nvim/site
+}
+
+setup_flake8() {
+    sudo pacman -s flake8
+    cp ~/.dotfiles/.config/flake8 ~/.config/flake8
+}
+
+setup_ncmpcpp() {
+    sudo pacman -S mpd ncmpcpp
+    cp ~/.dotfiles/.ncmpcpp/config ~/.ncmpcpp/config
+}
+
+setup_apps() {
+    sudo pacman -S lxappearance
+    sudo pacman -S rofi
+    sudo pacman -S nautlus thunar
+    sudo pacman -S feh
+    sudo pacman -S rxvt-unicode
+    sudo pacman -S light
+    sudo pacman -S xorg-setxkbmap xorg-xset xorg-xsetroot xautolock
+    sudo pacman -S ttf-ubuntu-font-family
+    sudo pacman -S otf-font-awesome awesome-terminal-fonts python-fontawesome
+    sudo pacman -S ranger
+    sudo pacman -S highlight
+    sudo pacman -S wmctrl
+    sudo pacman -S volumeicon
+    sudo pacman -S r pandoc pandoc-citeproc
+    sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
+    yay -S i3-battery-nagbar i3scrot-git
+    yay -S google-chrome
+    yay -S skypeforlinux-stable-bin
+    yay -S checkupdates+aur
+}
+
+
+get_dotfiles
+setup_yay
+setup_i3
+setup_suckless
+setup_zsh
+setup_x
+setup_vim
+setup_zathura
+setup_su
+setup_flake8
+setup_ncmpcpp
+setup_apps
+
+# Development
+# python
+setup_flake8
