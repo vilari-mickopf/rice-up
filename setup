@@ -46,13 +46,15 @@ setup_yay() {
     package="yay"
     check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
     if [ -n $check ]; then
-        git clone https://aur.archlinux.org/yay.git ~/yay
+        git clone https://aur.archlinux.org/yay.git $HOME/yay
         current_dir=$(pwd)
-        cd ~/yay
+        cd $HOME/yay
         makepkg -si --noconfirm
         cd $current_dir
-        rm -rf ~/yay
+        rm -rf $HOME/yay
     fi
+
+    echo
 }
 
 get_dotfiles() {
@@ -68,6 +70,8 @@ get_dotfiles() {
         git clone https://github.com/f12markovic/dotfiles.git $HOME/.dotfiles
         git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
     fi
+
+    echo
 }
 
 setup_i3() {
@@ -80,26 +84,37 @@ setup_i3() {
               "thunar" "feh" "rxvt-unicode" "light" "xorg-setxkbmap" \
               "xorg-xset" "xorg-xsetroot" "xautolock" "i3-battery-nagbar" \
               "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
-              "volumeicon" "gnome-terminal" "rxvt-unicode")
-    # _install_packages ${packages[@]}
+              "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad")
+    _install_packages ${packages[@]}
 
-    # cp ~/.dotfiles/.config/i3/config ~/.config/i3/
-    # cp ~/.dotfiles/.config/i3/i3blocks.conf ~/.config/i3/
-    # cp -r ~/.dotfiles/.config/i3/scripts ~/.config/i3/
-    # cp ~/.dotfiles/.config/compton.conf ~/.config/compton.conf
-    bash -c "$((curl -fsSL https://raw.githubusercontent.com/denysdovhan/gnome-terminal-one/master/one-dark.sh) | sed 's/gconftool/gconftool-2/g')"
-    return
+    cp $HOME/.dotfiles/.config/i3/config $HOME/.config/i3/
+    cp $HOME/.dotfiles/.config/i3/i3blocks.conf $HOME/.config/i3/
+    cp -r $HOME/.dotfiles/.config/i3/scripts $HOME/.config/i3/
 
-    cp ~/.dotfiles/.config/gtk-3.0/gtk.css ~/.config/gtk-3.0/gtk.css
+    cp $HOME/.dotfiles/.config/compton.conf $HOME/.config/compton.conf
+
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/denysdovhan/gnome-terminal-one/master/one-dark.sh)"
+
+    cp $HOME/.dotfiles/.config/gtk-3.0/gtk.css $HOME/.config/gtk-3.0/gtk.css
 
     cp $HOME/.dotfiles/.Xresources $HOME/
     cp $HOME/.dotfiles/.extend.Xresources $HOME/
 
-    cp -r .dotfiles/suckless ~/.config/
-    ~/.config/suckless/suckup
+    cp -r $HOME/.dotfiles/.config/suckless $HOME/.config/
+    $HOME/.config/suckless/suck-up
 
-    user_dir=$HOME
-    sudo ln -s $user_dir/.config/oblogout.conf /etc/oblogout.conf
+    sudo ln -sf $user_dir/.config/oblogout.conf /etc/oblogout.conf
+
+    echo
+}
+
+setup_git() {
+    packages=("git")
+    _install_packages ${packages[@]}
+
+    cp $HOME/.dotfiles/.gitconfig $HOME/
+
+    echo
 }
 
 setup_zsh() {
@@ -120,6 +135,8 @@ setup_zsh() {
 
     cp -r $HOME/.dotfiles/.config/zsh-custom-themes/ $HOME/.config/
     cp $HOME/.dotfiles/.zshrc $HOME/
+
+    echo
 }
 
 setup_vim() {
@@ -131,52 +148,63 @@ setup_vim() {
               "python2-flake8-debugger" "octave")
     _install_packages ${packages[@]}
 
-    mkdir -p ~/.vim/bundle
-    git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
-    cp -r ~/.dotfiles/.vim/scripts ~/.vim/
-    cp ~/.dotfiles/.vimrc ~/.vimrc
+    mkdir -p $HOME/.vim/bundle
+    git clone https://github.com/VundleVim/Vundle.vim.git $HOME/.vim/bundle/Vundle.vim
+    cp -r $HOME/.dotfiles/.vim/scripts $HOME/.vim/
+    cp $HOME/.dotfiles/.vimrc $HOME/.vimrc
 
     # neovim - vim
-    mkdir -p ~/.config/nvim/
-    ln -s ~/.vimrc ~/.config/nvim/init.vim
+    mkdir -p $HOME/.config/nvim/
+    ln -sf $HOME/.vimrc $HOME/.config/nvim/init.vim
 
-    mkdir -p ~/.local/share/nvim/
-    ln -s ~/.vim ~/.local/share/nvim/site
+    mkdir -p $HOME/.local/share/nvim/
+    ln -sf $HOME/.vim $HOME/.local/share/nvim/site
 
     nvim +PluginInstall +qa
-    ~/.vim/bundle/YouCompleteMe/install.py
-    cd ~/.vim/bundle/vimproc.vim && make
+    $HOME/.vim/bundle/YouCompleteMe/install.py
+    cd $HOME/.vim/bundle/vimproc.vim && make
     nvim +UpdateRemotePlugins +qa
 
-    cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/autoload/vebugger.vim
-    cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/autoload/vebugger/std.vim
-    cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/plugin/vebugger.vim
-    cp -r ~/.dotfiles/.vim/bundle/vim-template ~/.vim/bundle/vim-template
-    cp -r ~/.dotfiles/.vim/syntax ~/.vim/syntax
-    cp -r ~/.dotfiles/.vim/plugin ~/.vim/plugin
+    cp $HOME/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim \
+       $HOME/.vim/bundle/vim-vebugger/autoload/vebugger.vim
+
+    cp $HOME/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim \
+       $HOME/.vim/bundle/vim-vebugger/autoload/vebugger/std.vim
+
+    cp $HOME/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim \
+       $HOME/.vim/bundle/vim-vebugger/plugin/vebugger.vim
+
+    cp -r $HOME/.dotfiles/.vim/bundle/vim-template $HOME/.vim/bundle/vim-template
+    cp -r $HOME/.dotfiles/.vim/syntax $HOME/.vim/syntax
+    cp -r $HOME/.dotfiles/.vim/plugin $HOME/.vim/plugin
+
+    echo
 }
 
 setup_zathura() {
     echo "Setting zathura"
     packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
     _install_packages ${packages[@]}
-    cp -r ~/.dotfiles/.config/zathura ~/.config/
+    cp -r $HOME/.dotfiles/.config/zathura $HOME/.config/
+
+    echo
 }
 
 setup_su() {
     echo "Setting su"
 
     user_dir=$HOME
-    sudo ln -s $user_dir/.bashrc /root/.bashrc
-    sudo ln -s $user_dir/.zshrc /root/.zshrc
-    sudo ln -s $user_dir/.oh-my-zsh /root/.oh-my-zsh
-    sudo ln -s $user_dir/.config/zsh-custom-themes /root/.config/zsh-custom-themes
-    sudo ln -s $user_dir/.vimrc /root/.vimrc
-    sudo ln -s $user_dir/.vim /root/.vim
+    sudo ln -sf $user_dir/.zshrc /root/.zshrc
+    sudo ln -sf $user_dir/.oh-my-zsh /root/.oh-my-zsh
+    sudo ln -sf $user_dir/.config/zsh-custom-themes /root/.config/zsh-custom-themes
+    sudo ln -sf $user_dir/.vimrc /root/.vimrc
+    sudo ln -sf $user_dir/.vim /root/.vim
     sudo mkdir -p /root/.config/nvim/
-    sudo ln -s $user_dir/.vimrc /root/.config/nvim/init.vim
+    sudo ln -sf $user_dir/.vimrc /root/.config/nvim/init.vim
     sudo mkdir -p /root/.local/share/nvim/
-    sudo ln -s $user_dir/.vim /root/.local/share/nvim/site
+    sudo ln -sf $user_dir/.vim /root/.local/share/nvim/site
+
+    echo
 }
 
 setup_flake8() {
@@ -184,7 +212,9 @@ setup_flake8() {
 
     packages=("flake8")
     _install_packages ${packages[@]}
-    cp ~/.dotfiles/.config/flake8 ~/.config/
+    cp $HOME/.dotfiles/.config/flake8 $HOME/.config/
+
+    echo
 }
 
 setup_ncmpcpp() {
@@ -195,6 +225,8 @@ setup_ncmpcpp() {
 
     mkdir $HOME/.ncmpcpp/
     cp $HOME/.dotfiles/.ncmpcpp/config $HOME/.ncmpcpp/
+
+    echo
 }
 
 setup_apps() {
@@ -204,6 +236,8 @@ setup_apps() {
                "skypeforlinux-stable-bin")
     _install_packages ${packages[@]}
     sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
+
+    echo
 }
 
 setup_fonts() {
@@ -213,12 +247,15 @@ setup_fonts() {
     packages=("ttf-ubuntu-font-family" "otf-font-awesome"
               "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
     _install_packages ${packages[@]}
+
+    echo
 }
 
-# get_dotfiles
 # setup_yay
+# get_dotfiles
+# setup_git
 # setup_i3
-setup_zsh
+# setup_zsh
 # setup_vim
 # setup_zathura
 # setup_su
