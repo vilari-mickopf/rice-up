@@ -1,68 +1,140 @@
-#! /bin/sh
+#! /bin/bash
+
+
+_isInstalled() {
+    package="$1"
+    check="$(yay -Qs --color always "${package}" | grep "local" | grep "${package} ")"
+
+    if [ -n "${check}" ]; then
+        echo 0
+        return
+    fi
+    echo 1
+    return
+}
+
+_install_packages() {
+    toInstall=()
+
+    for pkg; do
+        if [[ $(_isInstalled $pkg) == 0 ]]; then
+            echo "$pkg is already installed."
+            continue
+        fi
+
+        toInstall+=($pkg)
+    done
+
+    if [[ ${toInstall[@]} == "" ]]; then
+        echo "All packages are already installed."
+        return
+    fi
+
+    printf "Packages not installed:\n%s\n" ${toInstall[@]}
+    yay -S ${toInstall[@]} --noconfirm
+}
 
 
 setup_yay() {
-    sudo pacman -S git
-    git clone https://aur.archlinux.org/yay.git ~/yay
-    current_dir=$(pwd)
-    cd ~/yay
-    makepkg -si
-    cd $current_dir
-    rm -rf ~/yay
+    echo "Installing yay - Yet another Yaourt"
+    package="git"
+    check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
+    if [ -n $check ]; then
+        sudo pacman -S $package --noconfirm
+    fi
+
+    package="yay"
+    check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
+    if [ -n $check ]; then
+        git clone https://aur.archlinux.org/yay.git ~/yay
+        current_dir=$(pwd)
+        cd ~/yay
+        makepkg -si --noconfirm
+        cd $current_dir
+        rm -rf ~/yay
+    fi
 }
 
 get_dotfiles() {
-    git clone https://github.com/f12markovic/dotfiles.git ~/.dotfiles
-    git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+    echo "Collecting dotfiles"
+
+    packages=("git")
+    _install_packages ${packages[@]}
+
+    if [ -d $HOME/.dotfiles ]; then
+        cd $HOME/.dotfiles
+        git pull
+    else
+        git clone https://github.com/f12markovic/dotfiles.git $HOME/.dotfiles
+        git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+    fi
 }
 
 setup_i3() {
-    sudo pacman curl wget
-    sudo pacman -S i3-gaps i3blocks i3lock-color compton
-    cp ~/.dotfiles/.config/i3/config ~/.config/i3/
-    cp ~/.dotfiles/.config/i3/i3blocks.conf ~/.config/i3/
-    cp -r ~/.dotfiles/.config/i3/scripts ~/.config/i3/
-    cp ~/.dotfiles/.config/compton.conf ~/.config/compton.conf
-    bash -c "$(curl -fsSL https://raw.githubusercontent.com/denysdovhan/gnome-terminal-one/master/one-dark.sh)"
-    cp ~/.dotfiles/.config/gtk-3.0/gtk.css ~/.config/gtk-3.0/gtk.css
-    sudo pacman -S alsa alsa-utils alsa-firmware alsa-lib alsa-oss alsa-plugins
-    sudo pacman -S pulseaudio pulseaudio-alsa pavucontrol
-    sudo pacman -S arandr
-    yay -S srandrd
-}
+    echo "Setting i3-gaps"
 
-setup_suckless() {
+    packages=("xorg" "curl" "i3-gaps" "i3blocks" "i3lock-color" "compton" \
+              "alsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
+              "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
+              "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
+              "thunar" "feh" "rxvt-unicode" "light" "xorg-setxkbmap" \
+              "xorg-xset" "xorg-xsetroot" "xautolock" "i3-battery-nagbar" \
+              "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
+              "volumeicon" "gnome-terminal" "rxvt-unicode")
+    # _install_packages ${packages[@]}
+
+    # cp ~/.dotfiles/.config/i3/config ~/.config/i3/
+    # cp ~/.dotfiles/.config/i3/i3blocks.conf ~/.config/i3/
+    # cp -r ~/.dotfiles/.config/i3/scripts ~/.config/i3/
+    # cp ~/.dotfiles/.config/compton.conf ~/.config/compton.conf
+    bash -c "$((curl -fsSL https://raw.githubusercontent.com/denysdovhan/gnome-terminal-one/master/one-dark.sh) | sed 's/gconftool/gconftool-2/g')"
+    return
+
+    cp ~/.dotfiles/.config/gtk-3.0/gtk.css ~/.config/gtk-3.0/gtk.css
+
+    cp $HOME/.dotfiles/.Xresources $HOME/
+    cp $HOME/.dotfiles/.extend.Xresources $HOME/
+
     cp -r .dotfiles/suckless ~/.config/
     ~/.config/suckless/suckup
+
+    user_dir=$HOME
+    sudo ln -s $user_dir/.config/oblogout.conf /etc/oblogout.conf
 }
 
 setup_zsh() {
-    sudo pacman -S fzf glib2 zsh zsh-syntax-highlighting
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
-    cp -r ~/.dotfiles/.config/zsh-custom-themes/ ~/.config/
-    cp ~/.dotfiles/.zshrc ~/.zshrc
-}
+    echo "Setting zsh"
 
-setup_x() {
-    cp ~/.dotfiles/.Xresources ~/.Xresources
-    cp ~/.dotfiles/.extend.Xresources ~/.extend.Xresources
+    packages=("wget" "curl" "fzf" "glib2" "zsh" "zsh-syntax-highlighting")
+    _install_packages ${packages[@]}
+
+    echo "exit" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+    chsh -s $(which zsh)
+
+    current_dir=$(pwd)
+    mkdir -p $HOME/.zsh
+    cd $HOME/.zsh
+    wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh
+    mv git-completion.zsh _git
+    cd $current_dir
+
+    cp -r $HOME/.dotfiles/.config/zsh-custom-themes/ $HOME/.config/
+    cp $HOME/.dotfiles/.zshrc $HOME/
 }
 
 setup_vim() {
-    sudo pacman -S neovim pacman python-neovim python-pynvim python2-pynvim
-    sudo pacman -S ctags hasktags
-    sudo pacman -S jupyter
-    sudo pacman -S clang cmake gdb gdb-common lldb
-    sudo pacman -S python python-flake8-debugger python2-flake8-debugger
-    sudo pacman -S octave
+    echo "Setting vim"
+
+    packages=("neovim" "python" "python-neovim" "python-pynvim" "python2-pynvim"
+              "wl-clipboard" "xsel" "xclip" "ctags" "hasktags" "jupyter" "clang"
+              "cmake" "gdb" "gdb-common" "lldb" "python-flake8-debugger"
+              "python2-flake8-debugger" "octave")
+    _install_packages ${packages[@]}
 
     mkdir -p ~/.vim/bundle
     git clone https://github.com/VundleVim/Vundle.vim.git ~/.vim/bundle/Vundle.vim
     cp -r ~/.dotfiles/.vim/scripts ~/.vim/
-
-    vim +PlugInstall +qall > /dev/null
-    ~/.vim/bundle/YouCompleteMe/install.py
-    cd ~/.vim/bundle/vimproc.vim && make
+    cp ~/.dotfiles/.vimrc ~/.vimrc
 
     # neovim - vim
     mkdir -p ~/.config/nvim/
@@ -70,6 +142,11 @@ setup_vim() {
 
     mkdir -p ~/.local/share/nvim/
     ln -s ~/.vim ~/.local/share/nvim/site
+
+    nvim +PluginInstall +qa
+    ~/.vim/bundle/YouCompleteMe/install.py
+    cd ~/.vim/bundle/vimproc.vim && make
+    nvim +UpdateRemotePlugins +qa
 
     cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/autoload/vebugger.vim
     cp ~/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim ~/.vim/bundle/vim-vebugger/autoload/vebugger/std.vim
@@ -80,12 +157,16 @@ setup_vim() {
 }
 
 setup_zathura() {
-    sudo pacman -S zathura zathura-pdf-mupdf zathura-djvu zathura-ps
-    cp ~/.dotfiles/.config/zathura ~/.config/zathura
+    echo "Setting zathura"
+    packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
+    _install_packages ${packages[@]}
+    cp -r ~/.dotfiles/.config/zathura ~/.config/
 }
 
 setup_su() {
-    user_dir = $HOME
+    echo "Setting su"
+
+    user_dir=$HOME
     sudo ln -s $user_dir/.bashrc /root/.bashrc
     sudo ln -s $user_dir/.zshrc /root/.zshrc
     sudo ln -s $user_dir/.oh-my-zsh /root/.oh-my-zsh
@@ -99,51 +180,50 @@ setup_su() {
 }
 
 setup_flake8() {
-    sudo pacman -s flake8
-    cp ~/.dotfiles/.config/flake8 ~/.config/flake8
+    echo "Setting flake8"
+
+    packages=("flake8")
+    _install_packages ${packages[@]}
+    cp ~/.dotfiles/.config/flake8 ~/.config/
 }
 
 setup_ncmpcpp() {
-    sudo pacman -S mpd ncmpcpp
-    cp ~/.dotfiles/.ncmpcpp/config ~/.ncmpcpp/config
+    echo "Setting ncmpcpp"
+
+    packages=("mpd" "ncmpcpp")
+    _install_packages ${packages[@]}
+
+    mkdir $HOME/.ncmpcpp/
+    cp $HOME/.dotfiles/.ncmpcpp/config $HOME/.ncmpcpp/
 }
 
 setup_apps() {
-    sudo pacman -S lxappearance
-    sudo pacman -S rofi
-    sudo pacman -S nautlus thunar
-    sudo pacman -S feh
-    sudo pacman -S rxvt-unicode
-    sudo pacman -S light
-    sudo pacman -S xorg-setxkbmap xorg-xset xorg-xsetroot xautolock
-    sudo pacman -S ttf-ubuntu-font-family
-    sudo pacman -S otf-font-awesome awesome-terminal-fonts python-fontawesome
-    sudo pacman -S ranger
-    sudo pacman -S highlight
-    sudo pacman -S wmctrl
-    sudo pacman -S volumeicon
-    sudo pacman -S r pandoc pandoc-citeproc
+    echo "Installing other apps"
+
+    packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
+               "skypeforlinux-stable-bin")
+    _install_packages ${packages[@]}
     sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
-    yay -S i3-battery-nagbar i3scrot-git
-    yay -S google-chrome
-    yay -S skypeforlinux-stable-bin
-    yay -S checkupdates+aur
 }
 
+setup_fonts() {
+    echo "Installingg fonts"
 
-get_dotfiles
-setup_yay
-setup_i3
-setup_suckless
+    adobe_fonts=$(pacman -Ssq adobe-source)
+    packages=("ttf-ubuntu-font-family" "otf-font-awesome"
+              "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
+    _install_packages ${packages[@]}
+}
+
+# get_dotfiles
+# setup_yay
+# setup_i3
 setup_zsh
-setup_x
-setup_vim
-setup_zathura
-setup_su
-setup_flake8
-setup_ncmpcpp
-setup_apps
-
-# Development
-# python
-setup_flake8
+# setup_vim
+# setup_zathura
+# setup_su
+# setup_flake8
+# setup_ncmpcpp
+# setup_apps
+# setup_fonts
+# setup_flake8
