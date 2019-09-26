@@ -103,12 +103,15 @@ setup_i3() {
     cp -r $HOME/.dotfiles/.config/suckless $HOME/.config/
     $HOME/.config/suckless/suck-up
 
+    user_dir=$HOME
     sudo ln -sf $user_dir/.config/oblogout.conf /etc/oblogout.conf
 
     echo
 }
 
 setup_git() {
+    echo "Setting git"
+
     packages=("git")
     _install_packages ${packages[@]}
 
@@ -183,6 +186,7 @@ setup_vim() {
 
 setup_zathura() {
     echo "Setting zathura"
+
     packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
     _install_packages ${packages[@]}
     cp -r $HOME/.dotfiles/.config/zathura $HOME/.config/
