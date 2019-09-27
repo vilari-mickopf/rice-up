@@ -9,7 +9,9 @@ is_installed() {
         echo 0
         return
     fi
+
     echo 1
+
     return
 }
 
@@ -60,16 +62,17 @@ setup_yay() {
 get_dotfiles() {
     echo "Collecting dotfiles"
 
-    packages=("git")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("git")
+        install_packages ${packages[@]}
+    fi
 
     if [ -d $HOME/.dotfiles ]; then
-        cd $HOME/.dotfiles
-        git pull
-    else
-        git clone https://github.com/f12markovic/dotfiles.git $HOME/.dotfiles
-        git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+        rm -rf $HOME/.dotfiles
     fi
+
+    git clone https://github.com/f12markovic/dotfiles.git $HOME/.dotfiles
+    git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
 
     echo
 }
@@ -77,17 +80,20 @@ get_dotfiles() {
 setup_i3() {
     echo "Setting i3-gaps"
 
-    packages=("xorg" "curl" "i3-gaps" "i3blocks" "i3lock-color" "compton" \
-              "alsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
-              "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
-              "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
-              "thunar" "feh" "rxvt-unicode" "light" "xorg-setxkbmap" \
-              "xorg-xset" "xorg-xsetroot" "xidlehook" "i3-battery-nagbar" \
-              "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
-              "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad" \
-              "paper-icon-theme" "arc-icon-theme" "xcursor-vanilla-dmz" \
-              "gtk-engine-murrine" "gnome-themes-standard" "arc-gtk-theme")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("xorg" "curl" "i3-gaps" "i3blocks" "i3lock-color" "compton" \
+                  "alsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
+                  "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
+                  "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
+                  "thunar" "feh" "rxvt-unicode" "light" "xorg-setxkbmap" \
+                  "xorg-xset" "xorg-xsetroot" "xidlehook" "i3-battery-nagbar" \
+                  "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
+                  "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad" \
+                  "paper-icon-theme" "arc-icon-theme" "xcursor-vanilla-dmz" \
+                  "gtk-engine-murrine" "gnome-themes-extra" "gnome-themes-standard" "arc-gtk-theme")
+
+        install_packages ${packages[@]}
+    fi
 
     cp $HOME/.dotfiles/.config/i3/config $HOME/.config/i3/
     cp $HOME/.dotfiles/.config/i3/i3blocks.conf $HOME/.config/i3/
@@ -118,8 +124,10 @@ setup_i3() {
 setup_git() {
     echo "Setting git"
 
-    packages=("git")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("git")
+        install_packages ${packages[@]}
+    fi
 
     cp $HOME/.dotfiles/.gitconfig $HOME/
 
@@ -129,8 +137,10 @@ setup_git() {
 setup_zsh() {
     echo "Setting zsh"
 
-    packages=("wget" "curl" "fzf" "glib2" "zsh" "zsh-syntax-highlighting")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("wget" "curl" "fzf" "glib2" "zsh" "zsh-syntax-highlighting")
+        install_packages ${packages[@]}
+    fi
 
     echo "exit" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
     chsh -s $(which zsh)
@@ -151,14 +161,19 @@ setup_zsh() {
 setup_vim() {
     echo "Setting vim"
 
-    packages=("neovim" "python" "python-neovim" "python-pynvim" "python2-pynvim"
-              "wl-clipboard" "xsel" "xclip" "ctags" "hasktags" "jupyter" "clang"
-              "cmake" "gdb" "gdb-common" "lldb" "python-flake8-debugger"
-              "python2-flake8-debugger" "octave")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("neovim" "python" "python-neovim" "python-pynvim" "python2-pynvim"
+                  "wl-clipboard" "xsel" "xclip" "ctags" "hasktags" "jupyter" "clang"
+                  "cmake" "gdb" "gdb-common" "lldb" "python-flake8-debugger"
+                  "python2-flake8-debugger" "octave")
+        install_packages ${packages[@]}
+    fi
+    return
 
     mkdir -p $HOME/.vim/bundle
-    git clone https://github.com/VundleVim/Vundle.vim.git $HOME/.vim/bundle/Vundle.vim
+    if [ ! -d $HOME/.vim/bundle/Vundle.vim ]; then
+        git clone https://github.com/VundleVim/Vundle.vim.git $HOME/.vim/bundle/Vundle.vim
+    fi
     cp -r $HOME/.dotfiles/.vim/scripts $HOME/.vim/
     cp $HOME/.dotfiles/.vimrc $HOME/.vimrc
 
@@ -170,9 +185,9 @@ setup_vim() {
     ln -sf $HOME/.vim $HOME/.local/share/nvim/site
 
     nvim +PluginInstall +qa
+    nvim +UpdateRemotePlugins +qa
     $HOME/.vim/bundle/YouCompleteMe/install.py
     cd $HOME/.vim/bundle/vimproc.vim && make
-    nvim +UpdateRemotePlugins +qa
 
     cp $HOME/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim \
        $HOME/.vim/bundle/vim-vebugger/autoload/vebugger.vim
@@ -193,8 +208,11 @@ setup_vim() {
 setup_zathura() {
     echo "Setting zathura"
 
-    packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
+        install_packages ${packages[@]}
+    fi
+
     cp -r $HOME/.dotfiles/.config/zathura $HOME/.config/
 
     echo
@@ -220,8 +238,11 @@ setup_su() {
 setup_flake8() {
     echo "Setting flake8"
 
-    packages=("flake8")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("flake8")
+        install_packages ${packages[@]}
+    fi
+
     cp $HOME/.dotfiles/.config/flake8 $HOME/.config/
 
     echo
@@ -230,27 +251,20 @@ setup_flake8() {
 setup_ncmpcpp() {
     echo "Setting ncmpcpp"
 
-    packages=("mpd" "ncmpcpp")
-    install_packages ${packages[@]}
+    if [ $1 == false ]; then
+        packages=("mpd" "ncmpcpp")
+        install_packages ${packages[@]}
+    fi
 
-    mkdir $HOME/.ncmpcpp/
+    mkdir -p $HOME/.ncmpcpp/
     cp $HOME/.dotfiles/.ncmpcpp/config $HOME/.ncmpcpp/
 
     echo
 }
 
-setup_apps() {
-    echo "Installing other apps"
-
-    packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
-               "skypeforlinux-stable-bin")
-    install_packages ${packages[@]}
-    sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
-
-    echo
-}
-
 setup_fonts() {
+    if [ $1 == false ]; then
+
     echo "Installingg fonts"
 
     adobe_fonts=$(pacman -Ssq adobe-source)
@@ -258,24 +272,116 @@ setup_fonts() {
               "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
     install_packages ${packages[@]}
 
+    fi
+
     echo
+}
+
+setup_apps() {
+    setup_flake8 $1
+    setup_ncmpcpp $1
+    setup_zathura $1
+    setup_fonts $1
+
+    echo "Installing other apps"
+    if [ $1 == false ]; then
+        packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
+                   "skypeforlinux-stable-bin")
+        install_packages ${packages[@]}
+    fi
+    sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
+
+    echo
+}
+
+clean_up() {
+    current_dir=$(pwd)
+
+    cd $HOME/.dotfiles
+    find . -maxdepth 1 -type d,f ! -iname .git -exec rm -rvf {} \; > /dev/null 2>&1
+
+    cd $current_dir
+}
+
+help() {
+    echo "help"
 }
 
 main()
 {
-    setup_yay
-    get_dotfiles
-    setup_git
-    setup_i3
-    setup_zsh
-    setup_vim
-    setup_zathura
-    setup_su
-    setup_flake8
-    setup_ncmpcpp
-    setup_apps
-    setup_fonts
-    setup_flake8
+    arg_list='--help -h --all --config-only -c --vim -v --zsh -z --apps -a --su -s --i3 -i --git -g'
+
+    args=$@
+    if [ $# -eq 0 ]; then
+        args='--all'
+    fi
+
+    # Look for config flag
+    config=false
+    for arg in $args; do
+        if [ $arg == "--config-only" ] || [ $arg == "-c" ]; then
+            config=true
+        fi
+    done
+
+    # If config is the only flag, assume --all --config-only
+    if [[ $# -eq 1 && ($1 == "--config-only" || $1 == "-c") ]]; then
+        args='--all'
+    fi
+
+    # Check all args
+    for arg in $args; do
+        if [[ $arg_list != *$arg* ]]; then
+            help
+            return
+        fi
+    done
+
+    #Look for help flag
+    for arg in $args; do
+        if [ $arg == "--help" ] || [ $arg == "-h" ]; then
+            help
+            return
+        fi
+    done
+
+    # Look for all flag
+    for arg in $args; do
+        if [ $arg == "--all" ]; then
+            if [ $config == false ]; then
+                setup_yay
+            fi
+            get_dotfiles $config
+            setup_git $config
+            setup_i3 $config
+            setup_zsh $config
+            setup_vim $config
+            setup_su $config
+            setup_apps $config
+            clean_up
+            return
+        fi
+    done
+
+    # Look for others
+    get_dotfiles $config
+    for arg in $args; do
+        if [ $arg == "--vim" ] || [ $arg == "-v" ]; then
+            setup_vim $config
+        elif [ $arg == "--i3" ] || [ $arg == "-i" ]; then
+            setup_i3 $config
+        elif [ $arg == "--apps" ] || [ $arg == "-a" ]; then
+            setup_apps $config
+        elif [ $arg == "--su" ] || [ $arg == "-s" ]; then
+            setup_su $config
+        elif [ $arg == "--zsh" ] || [ $arg == "-z" ]; then
+            setup_zsh $config
+        elif [ $arg == "--git" ] || [ $arg == "-g" ]; then
+            setup_git $config
+        fi
+    done
+    clean_up
 }
 
-main
+
+main $@
