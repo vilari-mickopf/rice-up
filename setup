@@ -1,7 +1,7 @@
 #! /bin/bash
 
 
-_isInstalled() {
+is_installed() {
     package="$1"
     check="$(yay -Qs --color always "${package}" | grep "local" | grep "${package} ")"
 
@@ -13,40 +13,40 @@ _isInstalled() {
     return
 }
 
-_install_packages() {
-    toInstall=()
+install_packages() {
+    to_install=()
 
     for pkg; do
-        if [[ $(_isInstalled $pkg) == 0 ]]; then
+        if [[ $(is_installed $pkg) == 0 ]]; then
             echo "$pkg is already installed."
             continue
         fi
 
-        toInstall+=($pkg)
+        to_install+=($pkg)
     done
 
-    if [[ ${toInstall[@]} == "" ]]; then
+    if [[ ${to_install[@]} == "" ]]; then
         echo "All packages are already installed."
         return
     fi
 
-    printf "Packages not installed:\n%s\n" ${toInstall[@]}
-    yay -S ${toInstall[@]} --noconfirm
+    printf "Packages not installed:\n%s\n" ${to_install[@]}
+    yay -S ${to_install[@]} --noconfirm
 }
-
 
 setup_yay() {
     echo "Installing yay - Yet another Yaourt"
-    package="git"
-    check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
-    if [ -n $check ]; then
-        sudo pacman -S $package --noconfirm
-    fi
 
     package="yay"
     check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
     if [ -n $check ]; then
+        package="git"
+        check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
+        if [ -n $check ]; then
+            sudo pacman -S $package --noconfirm
+        fi
         git clone https://aur.archlinux.org/yay.git $HOME/yay
+
         current_dir=$(pwd)
         cd $HOME/yay
         makepkg -si --noconfirm
@@ -61,7 +61,7 @@ get_dotfiles() {
     echo "Collecting dotfiles"
 
     packages=("git")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
 
     if [ -d $HOME/.dotfiles ]; then
         cd $HOME/.dotfiles
@@ -82,10 +82,12 @@ setup_i3() {
               "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
               "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
               "thunar" "feh" "rxvt-unicode" "light" "xorg-setxkbmap" \
-              "xorg-xset" "xorg-xsetroot" "xautolock" "i3-battery-nagbar" \
+              "xorg-xset" "xorg-xsetroot" "xidlehook" "i3-battery-nagbar" \
               "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
-              "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad")
-    _install_packages ${packages[@]}
+              "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad" \
+              "paper-icon-theme" "arc-icon-theme" "xcursor-vanilla-dmz" \
+              "gtk-engine-murrine" "gnome-themes-standard" "arc-gtk-theme")
+    install_packages ${packages[@]}
 
     cp $HOME/.dotfiles/.config/i3/config $HOME/.config/i3/
     cp $HOME/.dotfiles/.config/i3/i3blocks.conf $HOME/.config/i3/
@@ -106,6 +108,10 @@ setup_i3() {
     user_dir=$HOME
     sudo ln -sf $user_dir/.config/oblogout.conf /etc/oblogout.conf
 
+    git clone https://github.com/bruhensant/Adeos-ArchLabs.git $HOME/Adeos-ArchLabs
+    sudo cp -r $user_dir/Adeos-ArchLabs/adeos-archlabs /usr/share/themes/
+    rm -rf $HOME/Adeos-ArchLabs
+
     echo
 }
 
@@ -113,7 +119,7 @@ setup_git() {
     echo "Setting git"
 
     packages=("git")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
 
     cp $HOME/.dotfiles/.gitconfig $HOME/
 
@@ -124,7 +130,7 @@ setup_zsh() {
     echo "Setting zsh"
 
     packages=("wget" "curl" "fzf" "glib2" "zsh" "zsh-syntax-highlighting")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
 
     echo "exit" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
     chsh -s $(which zsh)
@@ -149,7 +155,7 @@ setup_vim() {
               "wl-clipboard" "xsel" "xclip" "ctags" "hasktags" "jupyter" "clang"
               "cmake" "gdb" "gdb-common" "lldb" "python-flake8-debugger"
               "python2-flake8-debugger" "octave")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
 
     mkdir -p $HOME/.vim/bundle
     git clone https://github.com/VundleVim/Vundle.vim.git $HOME/.vim/bundle/Vundle.vim
@@ -188,7 +194,7 @@ setup_zathura() {
     echo "Setting zathura"
 
     packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
     cp -r $HOME/.dotfiles/.config/zathura $HOME/.config/
 
     echo
@@ -215,7 +221,7 @@ setup_flake8() {
     echo "Setting flake8"
 
     packages=("flake8")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
     cp $HOME/.dotfiles/.config/flake8 $HOME/.config/
 
     echo
@@ -225,7 +231,7 @@ setup_ncmpcpp() {
     echo "Setting ncmpcpp"
 
     packages=("mpd" "ncmpcpp")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
 
     mkdir $HOME/.ncmpcpp/
     cp $HOME/.dotfiles/.ncmpcpp/config $HOME/.ncmpcpp/
@@ -238,7 +244,7 @@ setup_apps() {
 
     packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
                "skypeforlinux-stable-bin")
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
     sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
 
     echo
@@ -250,21 +256,26 @@ setup_fonts() {
     adobe_fonts=$(pacman -Ssq adobe-source)
     packages=("ttf-ubuntu-font-family" "otf-font-awesome"
               "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
-    _install_packages ${packages[@]}
+    install_packages ${packages[@]}
 
     echo
 }
 
-# setup_yay
-# get_dotfiles
-# setup_git
-# setup_i3
-# setup_zsh
-# setup_vim
-# setup_zathura
-# setup_su
-# setup_flake8
-# setup_ncmpcpp
-# setup_apps
-# setup_fonts
-# setup_flake8
+main()
+{
+    setup_yay
+    get_dotfiles
+    setup_git
+    setup_i3
+    setup_zsh
+    setup_vim
+    setup_zathura
+    setup_su
+    setup_flake8
+    setup_ncmpcpp
+    setup_apps
+    setup_fonts
+    setup_flake8
+}
+
+main
