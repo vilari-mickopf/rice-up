@@ -121,6 +121,19 @@ setup_i3() {
     echo
 }
 
+setup_polybar() {
+    echo "Setting polybar"
+
+    if [ $1 == false ]; then
+        packages=("polybar" "nerd-fonts-mplus" "nerd-fonts-fira-code")
+        install_packages ${packages[@]}
+    fi
+
+    cp -r $HOME/.dotfiles/.config/polybar/ $HOME/.config/
+
+    echo
+}
+
 setup_git() {
     echo "Setting git"
 
@@ -309,7 +322,7 @@ help() {
 
 main()
 {
-    arg_list='--help -h --all --config-only -c --vim -v --zsh -z --apps -a --su -s --i3 -i --git -g'
+    arg_list='--help -h --all --config-only -c --vim -v --zsh -z --apps -a --su -s --i3 -i --git -g --polybar -p'
 
     args=$@
     if [ $# -eq 0 ]; then
@@ -354,6 +367,7 @@ main()
             get_dotfiles $config
             setup_git $config
             setup_i3 $config
+            setup_polybar $config
             setup_zsh $config
             setup_vim $config
             setup_su $config
@@ -370,6 +384,8 @@ main()
             setup_vim $config
         elif [ $arg == "--i3" ] || [ $arg == "-i" ]; then
             setup_i3 $config
+        elif [ $arg == "--polybar" ] || [ $arg == "-p" ]; then
+            setup_polybar $config
         elif [ $arg == "--apps" ] || [ $arg == "-a" ]; then
             setup_apps $config
         elif [ $arg == "--su" ] || [ $arg == "-s" ]; then
