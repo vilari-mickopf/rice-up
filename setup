@@ -3,7 +3,7 @@
 
 is_installed() {
     package="$1"
-    check="$(yay -Qs --color always "${package}" | grep "local" | grep "${package} ")"
+    check="$(yay -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
 
     if [ -n "${check}" ]; then
         echo 0
@@ -38,12 +38,12 @@ install_packages() {
 
 setup_yay() {
     package="yay"
-    check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
+    check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
 
     if [ -z "${check}" ]; then
         echo "Installing yay - Yet another Yaourt"
         package="git"
-        check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
+        check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
         if [ -n $check ]; then
             sudo pacman -S $package --noconfirm
         fi
