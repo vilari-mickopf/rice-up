@@ -37,11 +37,11 @@ install_packages() {
 }
 
 setup_yay() {
-    echo "Installing yay - Yet another Yaourt"
-
     package="yay"
     check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
-    if [ -n $check ]; then
+
+    if [ -z "${check}" ]; then
+        echo "Installing yay - Yet another Yaourt"
         package="git"
         check="$(pacman -Qs --color always $package | grep "local" | grep "$package ")"
         if [ -n $check ]; then
@@ -50,8 +50,10 @@ setup_yay() {
         git clone https://aur.archlinux.org/yay.git $HOME/yay
 
         current_dir=$(pwd)
+
         cd $HOME/yay
         makepkg -si --noconfirm
+
         cd $current_dir
         rm -rf $HOME/yay
     fi
@@ -117,19 +119,6 @@ setup_i3() {
     git clone https://github.com/bruhensant/Adeos-ArchLabs.git $HOME/Adeos-ArchLabs
     sudo cp -r $user_dir/Adeos-ArchLabs/adeos-archlabs /usr/share/themes/
     rm -rf $HOME/Adeos-ArchLabs
-
-    echo
-}
-
-setup_polybar() {
-    echo "Setting polybar"
-
-    if [ $1 == false ]; then
-        packages=("polybar" "nerd-fonts-mplus" "nerd-fonts-fira-code")
-        install_packages ${packages[@]}
-    fi
-
-    cp -r $HOME/.dotfiles/.config/polybar/ $HOME/.config/
 
     echo
 }
@@ -278,10 +267,11 @@ setup_ncmpcpp() {
 setup_fonts() {
     if [ $1 == false ]; then
 
-    echo "Installingg fonts"
+    echo "Installing fonts"
 
     adobe_fonts=$(pacman -Ssq adobe-source)
-    packages=("ttf-ubuntu-font-family" "otf-font-awesome"
+    packages=("ttf-ubuntu-font-family" "otf-font-awesome" "noto-fonts"
+              "noto-fonts-cjk" "noto-fonts-emoji" "noto-fonts-extra"
               "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
     install_packages ${packages[@]}
 
@@ -299,7 +289,7 @@ setup_apps() {
     echo "Installing other apps"
     if [ $1 == false ]; then
         packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
-                   "skypeforlinux-stable-bin")
+                  "skypeforlinux-stable-bin")
         install_packages ${packages[@]}
     fi
     sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
@@ -320,9 +310,10 @@ help() {
     echo "help"
 }
 
+
 main()
 {
-    arg_list='--help -h --all --config-only -c --vim -v --zsh -z --apps -a --su -s --i3 -i --git -g --polybar -p'
+    arg_list='--help -h --all --config-only -c --vim -v --zsh -z --apps -a --su -s --i3 -i --git -g'
 
     args=$@
     if [ $# -eq 0 ]; then
@@ -350,7 +341,7 @@ main()
         fi
     done
 
-    #Look for help flag
+    # Look for help flag
     for arg in $args; do
         if [ $arg == "--help" ] || [ $arg == "-h" ]; then
             help
@@ -367,7 +358,6 @@ main()
             get_dotfiles $config
             setup_git $config
             setup_i3 $config
-            setup_polybar $config
             setup_zsh $config
             setup_vim $config
             setup_su $config
@@ -384,8 +374,6 @@ main()
             setup_vim $config
         elif [ $arg == "--i3" ] || [ $arg == "-i" ]; then
             setup_i3 $config
-        elif [ $arg == "--polybar" ] || [ $arg == "-p" ]; then
-            setup_polybar $config
         elif [ $arg == "--apps" ] || [ $arg == "-a" ]; then
             setup_apps $config
         elif [ $arg == "--su" ] || [ $arg == "-s" ]; then
