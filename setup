@@ -1,9 +1,16 @@
 #! /bin/bash
 
 
+
 pacman_check() {
     package=$1
     check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
+    echo $check
+}
+
+pacman_check_aur() {
+    package=$1
+    check=$(pacman -Qqm --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "$package")
     echo $check
 }
 
@@ -21,18 +28,18 @@ is_installed() {
 
 install_packages() {
     pkg="$1"
+
     to_install=()
 
     for pkg; do
-        if [ $(is_installed $pkg) == 1 ]; then
+        if [[ $(is_installed $pkg) == 1 ]]; then
             echo "$pkg is already installed." >&2
             continue
         fi
-
         to_install+=($pkg)
     done
 
-    if [ -z ${to_install[@]} ]; then
+    if [ ${#to_install[@]} -eq 0 ]; then
         echo "All packages are already installed." >&2
         echo 0
         return
@@ -44,8 +51,22 @@ install_packages() {
     echo 0
 }
 
+install_groups() {
+    group="$1"
+
+    group_packages=$(pacman -Sg $group | sed 's/[^ ]* //')
+
+    if [[ $(install_packages $group_packages) != 0 ]]; then
+        echo -1
+        return
+    fi
+
+    echo 0
+}
+
 setup_yay() {
-    check=$(ls /bin/ | grep yay)
+    package="yay"
+    check=$(pacman_check_aur "$package")
 
     if [ -z "$check" ]; then
         echo "Installing yay - Yet another Yaourt" >&2
@@ -101,7 +122,7 @@ setup_wm() {
 
     # Install packages
     if [ $config_only == false ]; then
-        packages=("xorg" "curl" "i3-gaps" "i3blocks" "i3lock-color" "picom" \
+        packages=("curl" "i3-gaps" "i3blocks" "i3lock-color" "picom" \
                   "python-pyalsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
                   "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
                   "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
@@ -113,6 +134,12 @@ setup_wm() {
                   "gtk-engine-murrine" "arc-gtk-theme")
 
         if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
+
+        groups=("xorg")
+        if [[ $(install_groups ${groups[@]}) != 0 ]]; then
             echo -1
             return
         fi
