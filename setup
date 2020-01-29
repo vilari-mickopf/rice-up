@@ -1,56 +1,67 @@
 #! /bin/bash
 
 
+pacman_check() {
+    package=$1
+    check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
+    echo $check
+}
+
 is_installed() {
     package="$1"
-    check="$(yay -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
+    check="$(yay -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package\s")"
 
-    if [ -n "${check}" ]; then
+    if [ -z "${check}" ]; then
         echo 0
         return
     fi
 
     echo 1
-
-    return
 }
 
 install_packages() {
+    pkg="$1"
     to_install=()
 
     for pkg; do
-        if [[ $(is_installed $pkg) == 0 ]]; then
-            echo "$pkg is already installed."
+        if [ $(is_installed $pkg) == 1 ]; then
+            echo "$pkg is already installed." >&2
             continue
         fi
 
         to_install+=($pkg)
     done
 
-    if [[ ${to_install[@]} == "" ]]; then
-        echo "All packages are already installed."
+    if [ -z ${to_install[@]} ]; then
+        echo "All packages are already installed." >&2
+        echo 0
         return
     fi
 
-    printf "Packages not installed:\n%s\n" ${to_install[@]}
-    yay -S ${to_install[@]} --noconfirm
+    echo "Packages not installed: ${to_install[@]}" >&2
+    yay -S ${to_install[@]} --noconfirm >&2
+
+    echo 0
 }
 
 setup_yay() {
-    package="yay"
-    check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
+    check=$(ls /bin/ | grep yay)
 
-    if [ -z "${check}" ]; then
-        echo "Installing yay - Yet another Yaourt"
+    if [ -z "$check" ]; then
+        echo "Installing yay - Yet another Yaourt" >&2
+
+        # Get git
         package="git"
-        check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
-        if [ -n $check ]; then
+        check=$(pacman_check "$package")
+        if [ -z "$check" ]; then
             sudo pacman -S $package --noconfirm
         fi
+
+        # Get yay
         git clone https://aur.archlinux.org/yay.git $HOME/yay
 
+        # Install yay
         current_dir=$(pwd)
-
         cd $HOME/yay
         makepkg -si --noconfirm
 
@@ -58,33 +69,40 @@ setup_yay() {
         rm -rf $HOME/yay
     fi
 
-    echo
+    echo 0
 }
 
 get_dotfiles() {
-    echo "Collecting dotfiles"
+    echo "Collecting dotfiles" >&2
+    config_only=$1
 
-    if [ $1 == false ]; then
+    if [ "$config_only" == false ]; then
         packages=("git")
-        install_packages ${packages[@]}
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
 
     if [ -d $HOME/.dotfiles ]; then
         rm -rf $HOME/.dotfiles
     fi
 
-    git clone https://github.com/f12markovic/dotfiles.git $HOME/.dotfiles
+    git clone https://www.github.com/f12markovic/dotfiles.git $HOME/.dotfiles
     git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
 
-    echo
+    echo 0
 }
 
-setup_i3() {
-    echo "Setting i3-gaps"
+setup_wm() {
+    echo "Setting i3-gaps" >&2
 
-    if [ $1 == false ]; then
-        packages=("xorg" "curl" "i3-gaps" "i3blocks" "i3lock-color" "compton" \
-                  "alsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
+    config_only=$1
+
+    # Install packages
+    if [ $config_only == false ]; then
+        packages=("xorg" "curl" "i3-gaps" "i3blocks" "i3lock-color" "picom" \
+                  "python-pyalsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
                   "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
                   "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
                   "thunar" "feh" "rxvt-unicode" "light" "xorg-setxkbmap" \
@@ -92,19 +110,24 @@ setup_i3() {
                   "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
                   "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad" \
                   "paper-icon-theme" "arc-icon-theme" "xcursor-vanilla-dmz" \
-                  "gtk-engine-murrine" "gnome-themes-extra" "gnome-themes-standard" "arc-gtk-theme")
+                  "gtk-engine-murrine" "arc-gtk-theme")
 
-        install_packages ${packages[@]}
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
 
+    # Configs
     cp $HOME/.dotfiles/.config/i3/config $HOME/.config/i3/
     cp $HOME/.dotfiles/.config/i3/i3blocks.conf $HOME/.config/i3/
     cp -r $HOME/.dotfiles/.config/i3/scripts $HOME/.config/i3/
 
     cp $HOME/.dotfiles/.config/compton.conf $HOME/.config/compton.conf
 
-    bash -c "$(curl -fsSL https://raw.githubusercontent.com/denysdovhan/gnome-terminal-one/master/one-dark.sh)"
+    echo "119" | bash -c "$(wget -qO- https://git.io/vQgMr)" >&2
 
+    mkdir -p $HOME/.config/gtk-3.0/
     cp $HOME/.dotfiles/.config/gtk-3.0/gtk.css $HOME/.config/gtk-3.0/gtk.css
 
     cp $HOME/.dotfiles/.Xresources $HOME/
@@ -120,57 +143,60 @@ setup_i3() {
     sudo cp -r $user_dir/Adeos-ArchLabs/adeos-archlabs /usr/share/themes/
     rm -rf $HOME/Adeos-ArchLabs
 
-    echo
+    echo 0
 }
 
-setup_git() {
-    echo "Setting git"
+setup_shell() {
+    echo "Setting zsh" >&2
 
-    if [ $1 == false ]; then
-        packages=("git")
-        install_packages ${packages[@]}
-    fi
+    config_only=$1
 
-    cp $HOME/.dotfiles/.gitconfig $HOME/
-
-    echo
-}
-
-setup_zsh() {
-    echo "Setting zsh"
-
-    if [ $1 == false ]; then
+    if [ $config_only == false ]; then
         packages=("wget" "curl" "fzf" "glib2" "zsh" "zsh-syntax-highlighting")
-        install_packages ${packages[@]}
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
 
-    echo "exit" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
-    chsh -s $(which zsh)
+    echo "exit" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)" >&2
+
+    sudo chsh -s /bin/zsh >&2
 
     current_dir=$(pwd)
     mkdir -p $HOME/.zsh
     cd $HOME/.zsh
-    wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh
+    wget https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.zsh >&2
     mv git-completion.zsh _git
     cd $current_dir
 
     cp -r $HOME/.dotfiles/.config/zsh-custom-themes/ $HOME/.config/
     cp $HOME/.dotfiles/.zshrc $HOME/
 
-    echo
+    # Setting su
+    user_dir=$HOME
+    sudo ln -sf $user_dir/.zshrc /root/.zshrc
+    sudo ln -sf $user_dir/.oh-my-zsh /root/.oh-my-zsh
+    sudo ln -sf $user_dir/.config/zsh-custom-themes /root/.config/zsh-custom-themes
+
+    echo 0
 }
 
 setup_vim() {
-    echo "Setting vim"
+    echo "Setting vim" >&2
 
-    if [ $1 == false ]; then
-        packages=("neovim" "python" "python-neovim" "python-pynvim" "python2-pynvim"
+    config_only=$1
+
+    if [ $config_only == false ]; then
+        packages=("neovim" "python" "python-pynvim" "python2-pynvim"
                   "wl-clipboard" "xsel" "xclip" "ctags" "hasktags" "jupyter" "clang"
                   "cmake" "gdb" "gdb-common" "lldb" "python-flake8-debugger"
-                  "python2-flake8-debugger" "octave")
-        install_packages ${packages[@]}
+                  "octave")
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
-    return
 
     mkdir -p $HOME/.vim/bundle
     if [ ! -d $HOME/.vim/bundle/Vundle.vim ]; then
@@ -204,29 +230,8 @@ setup_vim() {
     cp -r $HOME/.dotfiles/.vim/syntax $HOME/.vim/syntax
     cp -r $HOME/.dotfiles/.vim/plugin $HOME/.vim/plugin
 
-    echo
-}
-
-setup_zathura() {
-    echo "Setting zathura"
-
-    if [ $1 == false ]; then
-        packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
-        install_packages ${packages[@]}
-    fi
-
-    cp -r $HOME/.dotfiles/.config/zathura $HOME/.config/
-
-    echo
-}
-
-setup_su() {
-    echo "Setting su"
-
+    # Setup for su
     user_dir=$HOME
-    sudo ln -sf $user_dir/.zshrc /root/.zshrc
-    sudo ln -sf $user_dir/.oh-my-zsh /root/.oh-my-zsh
-    sudo ln -sf $user_dir/.config/zsh-custom-themes /root/.config/zsh-custom-themes
     sudo ln -sf $user_dir/.vimrc /root/.vimrc
     sudo ln -sf $user_dir/.vim /root/.vim
     sudo mkdir -p /root/.config/nvim/
@@ -234,67 +239,123 @@ setup_su() {
     sudo mkdir -p /root/.local/share/nvim/
     sudo ln -sf $user_dir/.vim /root/.local/share/nvim/site
 
-    echo
+
+    echo 0
+}
+
+setup_zathura() {
+    echo "Setting zathura" >&2
+
+    config_only=$1
+
+    if [ $config_only == false ]; then
+        packages=("zathura" "zathura-pdf-mupdf" "zathura-djvu" "zathura-ps")
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
+    fi
+
+    cp -r $HOME/.dotfiles/.config/zathura $HOME/.config/
+
+    echo 0
 }
 
 setup_flake8() {
-    echo "Setting flake8"
+    echo "Setting flake8" >&2
 
-    if [ $1 == false ]; then
+    config_only=$1
+
+    if [ $config_only == false ]; then
         packages=("flake8")
-        install_packages ${packages[@]}
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
 
     cp $HOME/.dotfiles/.config/flake8 $HOME/.config/
 
-    echo
+    echo 0
 }
 
 setup_ncmpcpp() {
-    echo "Setting ncmpcpp"
+    echo "Setting ncmpcpp" >&2
 
-    if [ $1 == false ]; then
+    config_only=$1
+
+    if [ $config_only == false ]; then
         packages=("mpd" "ncmpcpp")
-        install_packages ${packages[@]}
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
 
     mkdir -p $HOME/.ncmpcpp/
     cp $HOME/.dotfiles/.ncmpcpp/config $HOME/.ncmpcpp/
 
-    echo
+    echo 0
 }
 
 setup_fonts() {
-    if [ $1 == false ]; then
+    config_only=$1
 
-    echo "Installing fonts"
+    if [ $config_only == false ]; then
+        echo "Installing fonts" >&2
 
-    adobe_fonts=$(pacman -Ssq adobe-source)
-    packages=("ttf-ubuntu-font-family" "otf-font-awesome" "noto-fonts"
-              "noto-fonts-cjk" "noto-fonts-emoji" "noto-fonts-extra"
-              "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
-    install_packages ${packages[@]}
-
+        adobe_fonts=$(pacman -Ssq adobe-source)
+        packages=("ttf-ubuntu-font-family" "otf-font-awesome" "noto-fonts"
+                  "noto-fonts-cjk" "noto-fonts-emoji" "noto-fonts-extra"
+                  "awesome-terminal-fonts" "python-fontawesome" $adobe_fonts)
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
 
-    echo
+    echo 0
+}
+
+setup_git() {
+    echo "Setting git" >&2
+
+    config_only=$1
+
+    if [ $config_only == false ]; then
+        packages=("git")
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
+    fi
+
+    cp $HOME/.dotfiles/.gitconfig $HOME/
+
+    echo 0
 }
 
 setup_apps() {
-    setup_flake8 $1
-    setup_ncmpcpp $1
-    setup_zathura $1
-    setup_fonts $1
+    config_only=$1
 
-    echo "Installing other apps"
-    if [ $1 == false ]; then
+    setup_flake8 $config_only
+    setup_ncmpcpp $config_only
+    setup_zathura $config_only
+    setup_fonts $config_only
+    setup_git $config_only
+
+    echo "Installing other apps" >&2
+    if [ $config_only == false ]; then
         packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
                   "skypeforlinux-stable-bin")
-        install_packages ${packages[@]}
+        if [[ $(install_packages ${packages[@]}) != 0 ]]; then
+            echo -1
+            return
+        fi
     fi
     sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
 
-    echo
+    echo 0
 }
 
 clean_up() {
@@ -304,27 +365,30 @@ clean_up() {
     find . -maxdepth 1 -type d,f ! -iname .git -exec rm -rvf {} \; > /dev/null 2>&1
 
     cd $current_dir
+
+    echo 0
 }
 
 help() {
-    echo "help"
+    echo "help" >&2
 }
 
 
 main()
 {
-    arg_list='--help -h --all --config-only -c --vim -v --zsh -z --apps -a --su -s --i3 -i --git -g'
+    arg_list='--help -h --all -a --config-only -c --force -f --vim -v --wm -w --shell -s --other -o'
 
+    # Parse args
     args=$@
     if [ $# -eq 0 ]; then
         args='--all'
     fi
 
     # Look for config flag
-    config=false
+    config_only=false
     for arg in $args; do
         if [ $arg == "--config-only" ] || [ $arg == "-c" ]; then
-            config=true
+            config_only=true
         fi
     done
 
@@ -341,7 +405,8 @@ main()
         fi
     done
 
-    # Look for help flag
+    # Do stuff
+    # Help
     for arg in $args; do
         if [ $arg == "--help" ] || [ $arg == "-h" ]; then
             help
@@ -349,42 +414,82 @@ main()
         fi
     done
 
-    # Look for all flag
+    # All
     for arg in $args; do
         if [ $arg == "--all" ]; then
-            if [ $config == false ]; then
-                setup_yay
+            if [ $config_only == false ]; then
+                if [[ $(setup_yay) != 0 ]]; then
+                    echo "Error while installing yay." >&2
+                    return
+                fi
             fi
-            get_dotfiles $config
-            setup_git $config
-            setup_i3 $config
-            setup_zsh $config
-            setup_vim $config
-            setup_su $config
-            setup_apps $config
-            clean_up
+            if [[ $(get_dotfiles $config_only) != 0 ]]; then
+                echo "Error while installing yay." >&2
+                return
+            fi
+
+            if [[ $(setup_wm $config_only) != 0 ]]; then
+                echo "Error while installing wm." >&2
+                return
+            fi
+
+            if [[ $(setup_shell $config_only) != 0 ]]; then
+                echo "Error while installing shell." >&2
+                return
+            fi
+
+            if [[ $(setup_vim $config_only) != 0 ]]; then
+                echo "Error while installing vim." >&2
+                return
+            fi
+
+            if [[ $(setup_apps $config_only) != 0 ]]; then
+                echo "Error while installing other apps." >&2
+                return
+            fi
+
+            if [[ $(clean_up) != 0 ]]; then
+                echo "Error while cleaning up." >&2
+                return
+            fi
+
             return
         fi
     done
 
-    # Look for others
-    get_dotfiles $config
+    # Single
+    if [ $(get_dotfiles $config_only) != 0 ]; then
+        echo "Error while installing yay." >&2
+        return
+    fi
     for arg in $args; do
-        if [ $arg == "--vim" ] || [ $arg == "-v" ]; then
-            setup_vim $config
-        elif [ $arg == "--i3" ] || [ $arg == "-i" ]; then
-            setup_i3 $config
-        elif [ $arg == "--apps" ] || [ $arg == "-a" ]; then
-            setup_apps $config
-        elif [ $arg == "--su" ] || [ $arg == "-s" ]; then
-            setup_su $config
-        elif [ $arg == "--zsh" ] || [ $arg == "-z" ]; then
-            setup_zsh $config
-        elif [ $arg == "--git" ] || [ $arg == "-g" ]; then
-            setup_git $config
+        if [ $arg == "--wm" ] || [ $arg == "-w" ]; then
+            if [[ $(setup_wm $config_only) != 0 ]]; then
+                echo "Error while installing wm." >&2
+                return
+            fi
+        elif [ $arg == "--shell" ] || [ $arg == "-s" ]; then
+            if [[ $(setup_shell $config_only) != 0 ]]; then
+                echo "Error while installing shell." >&2
+                return
+            fi
+        elif [ $arg == "--vim" ] || [ $arg == "-v" ]; then
+            if [[ $(setup_vim $config_only) != 0 ]]; then
+                echo "Error while installing vim." >&2
+                return
+            fi
+        elif [ $arg == "--other" ] || [ $arg == "-o" ]; then
+            if [[ $(setup_apps $config_only) != 0 ]]; then
+                echo "Error while installing other apps." >&2
+                return
+            fi
         fi
     done
-    clean_up
+
+    if [ $(clean_up) != 0 ]; then
+        echo "Error while cleaning up." >&2
+        return
+    fi
 }
 
 
