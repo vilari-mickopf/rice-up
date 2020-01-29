@@ -212,10 +212,10 @@ setup_vim() {
     mkdir -p $HOME/.local/share/nvim/
     ln -sf $HOME/.vim $HOME/.local/share/nvim/site
 
-    nvim +PluginInstall +qa
-    nvim +UpdateRemotePlugins +qa
-    $HOME/.vim/bundle/YouCompleteMe/install.py
-    cd $HOME/.vim/bundle/vimproc.vim && make
+    nvim +PluginInstall +qa >&2
+    nvim +UpdateRemotePlugins +qa >&2
+    $HOME/.vim/bundle/YouCompleteMe/install.py >&2
+    cd $HOME/.vim/bundle/vimproc.vim && make >&2
 
     cp $HOME/.dotfiles/.vim/bundle/vim-vebugger/autoload/vebugger.vim \
        $HOME/.vim/bundle/vim-vebugger/autoload/vebugger.vim
@@ -238,7 +238,6 @@ setup_vim() {
     sudo ln -sf $user_dir/.vimrc /root/.config/nvim/init.vim
     sudo mkdir -p /root/.local/share/nvim/
     sudo ln -sf $user_dir/.vim /root/.local/share/nvim/site
-
 
     echo 0
 }
@@ -338,11 +337,26 @@ setup_git() {
 setup_apps() {
     config_only=$1
 
-    setup_flake8 $config_only
-    setup_ncmpcpp $config_only
-    setup_zathura $config_only
-    setup_fonts $config_only
-    setup_git $config_only
+    if [[ $(setup_flake8 $config_only) != 0 ]]; then
+        echo -1
+        return
+    fi
+    if [[ $(setup_ncmpcpp $config_only) != 0 ]]; then
+        echo -1
+        return
+    fi
+    if [[ $(setup_zathura $config_only) != 0 ]]; then
+        echo -1
+        return
+    fi
+    if [[ $(setup_fonts $config_only) != 0 ]]; then
+        echo -1
+        return
+    fi
+    if [[ $(setup_git $config_only) != 0 ]]; then
+        echo -1
+        return
+    fi
 
     echo "Installing other apps" >&2
     if [ $config_only == false ]; then
@@ -353,7 +367,7 @@ setup_apps() {
             return
         fi
     fi
-    sudo R -e "install.packages(\"rmarkdown\", repos = \"https://cloud.r-project.org/\")"
+    sudo R -e "install.packages(\"rmarkdown\", repos=\"https://cloud.r-project.org/\")" >&2
 
     echo 0
 }
