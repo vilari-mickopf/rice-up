@@ -1,7 +1,6 @@
 #! /bin/bash
 
 
-
 pacman_check() {
     package=$1
     check="$(pacman -Qs --color always $package | sed 's/\x1b\[[0-9;]*m//g' | grep "local/$package")"
@@ -148,7 +147,7 @@ setup_wm() {
     # Configs
     cp $HOME/.dotfiles/.config/i3/config $HOME/.config/i3/
     cp $HOME/.dotfiles/.config/i3/i3blocks.conf $HOME/.config/i3/
-    cp -r $HOME/.dotfiles/.config/i3/scripts $HOME/.config/i3/
+    cp -r $HOME/.dotfiles/.config/i3/scripts $HOME/.config/i3/scripts
 
     cp $HOME/.dotfiles/.config/compton.conf $HOME/.config/compton.conf
 
