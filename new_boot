@@ -1,0 +1,42 @@
+#! /bin/sh
+WIFI_INTERFACE=wlan0
+WIFI_ESSID="CakaCakaCarli"
+
+iwctl station $WIFI_INTERFACE connect "$WIFI_ESSID"
+
+
+BOOT_SIZE=100MB
+ROOT_HOME_SPLIT=2/3
+SWAP_SIZE=16GB
+
+
+initswap() {
+    mkswap $1 && swapon $1
+}
+
+initroot() {
+    mkfs.ext4 $1 && mount $1 /mnt
+}
+
+inithome() {
+    mkfs.ext4 $1 && mount $1 /mnt/home
+}
+
+initboot() {
+    mkfs.vfat -F32 $1 && mount $1 /mnt/boot
+}
+
+
+new_swap=$(lsblk | grep "\[SWAP]$" | awk '{print $1}' | awk 'sub(/^.{2}/,"")')
+new_root=$(lsblk | grep /$ | awk '{print $1}' | awk 'sub(/^.{2}/,"")')
+
+
+echo "menuentry \"Arch Linux\" {" >> /boot/EFI/refind/refind.conf
+echo "    icon     /EFI/refind/themes/rEFInd-minimal/icons/os_arch.png" >> /boot/EFI/refind/refind.conf
+echo "    volume   \"Arch\"" >> /boot/EFI/refind/refind.conf
+echo "    loader   /vmlinuz-linux" >> /boot/EFI/refind/refind.conf
+echo "    initrd   /initramfs-linux.img" >> /boot/EFI/refind/refind.conf
+echo "    options  "resume=/dev/$new_swap root=/dev/$new_root rw add_efi_memmap"" >> /boot/EFI/refind/refind.conf
+echo "}" >> /boot/EFI/refind/refind.conf
+
+echo "include themes/rEFInd-minimal/theme.conf" >> /boot/EFI/refind/refind.conf

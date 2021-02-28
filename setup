@@ -121,7 +121,7 @@ setup_wm() {
 
     # Install packages
     if [ $config_only == false ]; then
-        packages=("curl" "i3-gaps" "i3blocks" "i3lock-color" "picom" \
+        packages=("curl" "i3-gaps" "i3blocks" "i3lock-color" "picom" "acpid" \
                   "python-pyalsa" "alsa-utils" "alsa-firmware" "alsa-lib" "alsa-oss" \
                   "alsa-plugins" "pulseaudio" "pulseaudio-alsa" "pavucontrol" \
                   "arandr" "srandrd" "oblogout" "lxappearance" "rofi" "nautilus" \
@@ -130,7 +130,8 @@ setup_wm() {
                   "i3-scrot" "checkupdates+aur" "ranger" "wmctrl" "highlight" \
                   "volumeicon" "gnome-terminal" "rxvt-unicode" "dconf" "yad" \
                   "paper-icon-theme" "arc-icon-theme" "xcursor-vanilla-dmz" \
-                  "gtk-engine-murrine" "arc-gtk-theme")
+                  "gtk-engine-murrine" "arc-gtk-theme" "xf86-video-intel"
+                  "mtpfs" "jmtpfs" "gvfs-gphoto2" "gvfs-mtp")
 
         if [[ $(install_packages ${packages[@]}) != 0 ]]; then
             echo -1
@@ -151,7 +152,7 @@ setup_wm() {
 
     cp $HOME/.dotfiles/.config/compton.conf $HOME/.config/compton.conf
 
-    echo "119" | bash -c "$(wget -qO- https://git.io/vQgMr)" >&2
+    echo "122" | bash -c "$(wget -qO- https://git.io/vQgMr)" >&2
 
     mkdir -p $HOME/.config/gtk-3.0/
     cp $HOME/.dotfiles/.config/gtk-3.0/gtk.css $HOME/.config/gtk-3.0/gtk.css
@@ -168,6 +169,14 @@ setup_wm() {
     git clone https://github.com/bruhensant/Adeos-ArchLabs.git $HOME/Adeos-ArchLabs
     sudo cp -r $user_dir/Adeos-ArchLabs/adeos-archlabs /usr/share/themes/
     rm -rf $HOME/Adeos-ArchLabs
+
+    mkdir $HOME/.config/wicd/
+    cp -r $HOME/.dotfiles/.config/wicd $HOME/.config/
+    sudo ln -sf $user_dir/.config/wicd/macchange /etc/wicd/scripts/preconnect/
+    sudo ln -sf $user_dir/.config/wicd/update-i3blocks /etc/wicd/scripts/postconnect/
+
+    sudo systemctl enable acpid >&2
+    sudo systemctl start acpid >&2
 
     echo 0
 }
@@ -386,7 +395,7 @@ setup_apps() {
 
     echo "Installing other apps" >&2
     if [ $config_only == false ]; then
-        packages=("r" "pandoc" "pandoc-citeproc" "google-chrome" \
+        packages=("r" "pandoc" "pandoc-citeproc" "chromium" "profile-cleaner" \
                   "skypeforlinux-stable-bin")
         if [[ $(install_packages ${packages[@]}) != 0 ]]; then
             echo -1

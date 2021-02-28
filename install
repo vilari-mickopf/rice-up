@@ -1,0 +1,91 @@
+#! /bin/sh
+
+
+LANG=en_US.UTF-8
+DISK=nvme0n1
+
+
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+
+# lsblk | grep "^$DISK" | awk '{print $4}'
+exit
+
+
+partitions() {
+    # Delete partiotions
+    echo -e "${YELLOW}Delete partiotions:${RESET}" >&2
+    while [[ $accept != "y" ]];  do
+        sudo cfdisk $DISK
+        lsblk
+        read -p 'Done? [y/n] ' accept
+        echo
+    done
+    local old=$(lsblk)
+
+    # Create new partiotions
+    echo -e "${YELLOW}Create new partiotions:${RESET}" >&2
+    while [[ $accept != "y" ]];  do
+        sudo cfdisk $DISK
+        lsblk
+        read -p 'Done? [y/n] ' accept
+        echo
+    done
+    local new=$(lsblk)
+
+    new_swap=diff $old $new | grep "\[SWAP]$" | awk '{print $1}' | awk 'sub(/^.{2}/,"")'
+    [[ -n $new_swap ]] && mkswap /dev/$new_swap && swapon /dev/$new_swap
+
+    new_root=diff $old $new | grep /$ | awk '{print $1}' | awk 'sub(/^.{2}/,"")'
+    [[ -n $new_root ]] && mkfs.ext4 /dev/$new_root && mount /dev/$new_root /mnt
+
+    new_home=diff $old $new | grep /home$ | awk '{print $1}' | awk 'sub(/^.{2}/,"")'
+    [[ -n $new_home ]] && mkfs.ext4 /dev/$new_home && mount /dev/$new_home /mnt/home
+
+    new_boot=diff $old $new | grep /boot$ | awk '{print $1}' | awk 'sub(/^.{2}/,"")'
+    [[ -n $new_home ]] && mkfs.vfat -F32 /dev/$new_boot && mount /dev/$new_boot /mnt/boot
+}
+
+# Lang -- already done
+sed -i "/#$LANG UTF-8/s/^#//g" /etc/locale.gen
+locale-gen
+localectl set-locale LANG=$LANG
+
+efi=$(ls /sys/firmware/efi/efivars)
+[[ -z $efi ]] && echo "Efivars not available."
+
+partitions
+
+# Time
+timedatectl set-ntp true
+
+# Install base pkgs
+pacstrap /mnt base base-devel
+
+# fstab
+genfstab -U /mnt >> /mnt/etc/fstab
+
+
+###
+
+# Go to arch
+arch-chroot /mnt
+
+# Time again
+ln -sf /usr/share/zoneinfo/Europe/Belgrade /etc/localtime
+hwclock --systohc
+
+# Hostaname
+echo vilari > /etc/hostname
+
+# Hosts
+echo "127.0.0.1	localhost" >> /etc/hosts
+echo "::1		localhost" >> /etc/hosts
+
+# Init kernel
+mkinitcpio -P
+
+# Set sudo pass
+psswd
