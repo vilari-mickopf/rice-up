@@ -1,0 +1,502 @@
+#!/bin/bash
+
+DOTFILES=$HOME/.dotfiles
+
+
+usage() {
+    echo 'Usage: rice [-w | --wm] [-b | --boot] [-s | --sh] [-v | --vim] [-a | --all]'
+    echo '            [-c | --config-only]'
+    echo '  -w | --wm           setup window manager'
+    echo '  -b | --boot         setup other applications'
+    echo '  -s | --sh           setup shell'
+    echo '  -v | --vim          setup vim'
+    echo '  -a | --all          equivalent of running -wsvo'
+    echo
+    echo '  -c | --config-only  Avoid installing packages with pacman/yay.'
+    echo '                      This will only download dotfiles and place them to'
+    echo '                      proper locations.'
+}
+
+is_installed() {
+    package=$1
+    pacman -Qi $package &>/dev/null
+    return $?
+}
+
+setup_yay() {
+    is_installed yay
+    [[ $? == 0 ]] && return 1
+
+    echo 'Yay is not installed!'
+    echo 'Installing yay - Yet another Yaourt'
+
+    # Get git
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        is_installed git
+        [[ $? != 0 ]] && sudo pacman -S git --noconfirm
+    fi
+
+    # Get yay
+    git clone https://aur.archlinux.org/yay.git $HOME/yay
+
+    # Install yay
+    current_dir=$(pwd)
+    cd $HOME/yay
+    makepkg -si --noconfirm
+
+    cd $current_dir
+    rm -rf $HOME/yay
+
+    return 0
+}
+
+get_dotfiles() {
+    echo 'Collecting dotfiles'
+
+    # Get git
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        is_installed git
+        [[ $? != 0 ]] && sudo pacman -S git --noconfirm
+    fi
+
+    rm -rf $DOTFILES
+    git clone https://www.github.com/vilari-mickopf/dotfiles.git $DOTFILES
+
+    git --git-dir=$DOTFILES/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+
+    return 0
+}
+
+install_packages() {
+    pkgs=($1)
+
+    to_install=()
+    for pkg in ${pkgs[@]}; do
+        is_installed $pkg
+        [[ $? == 0 ]] && echo "$pkg is already installed." && continue
+        to_install+=($pkg)
+    done
+
+    [[ ${#to_install[@]} == 0 ]] && \
+        echo 'All packages are already installed.' && return 1
+
+    echo "Packages not installed: ${to_install[@]}"
+    yay -S ${to_install[@]} --noconfirm --overwrite "*"
+    echo 'Packages installed.'
+
+    return 0
+}
+
+install_groups() {
+    groups=($1)
+
+    for group in ${groups[@]}; do
+        group_packages=$(pacman -Sg $group | sed 's/[^ ]* //')
+        install_packages "$group_packages"
+        [[ $? != 0 && $? != 1 ]] && return $?
+    done
+
+    return 0
+}
+
+setup_wm() {
+    echo 'Setting window manager'
+
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        adobe_fonts=$(pacman -Ssq adobe-source)
+        packages=(i3-gaps i3blocks i3lock-color alternating-layouts-git
+                  aic94xx-firmware wd719x-firmware upd72020x-fw libinput upower
+                  mkinitcpio-colors-git picom xidlehook light parcellite
+                  python-pyalsa alsa-utils alsa-firmware alsa-lib alsa-oss
+                  alsa-plugins pulseaudio pulseaudio-alsa pulseaudio-rtp
+                  pavucontrol mpv nmap netcat wireless_tools net-tools arp-scan
+                  arandr srandrd feh maim mpd ncmpcpp mplayer
+                  zathura zathura-pdf-mupdf zathura-djvu zathura-ps battop
+                  timidity++ wildmidi git python-colorama lxappearance
+                  udiskie dmenu rofi thunar ranger ntfs-3g ueberzug highlight
+                  dragon-drag-and-drop ponymix xkb-switch ncpamixer calcurse
+                  xorg-setxkbmap xorg-xset xorg-xsetroot ly perl-file-mimeinfo
+                  checkupdates+aur wmctrl curl wget bootiso refind
+                  paper-icon-theme-git xcursor-vanilla-dmz arc-gtk-theme
+                  gtk-engine-murrine xurls atool python-bidi dtrx
+                  bzip2 cpio gzip lha xz lzop p7zip tar unace unrar zip unzip
+                  ttf-ubuntu-font-family otf-font-awesome noto-fonts
+                  noto-fonts-cjk noto-fonts-emoji noto-fonts-extra
+                  awesome-terminal-fonts python-fontawesome $adobe_fonts
+                  chromium skypeforlinux-stable-bin slack-desktop viber remmina
+                  oblogout)
+
+        install_packages "${packages[*]}"
+        [[ $? != 0 && $? != 1 ]] && return $?
+
+        groups=(xorg)
+        install_groups "${groups[*]}"
+        [[ $? != 0 && $? != 1 ]] && return $?
+    fi
+
+    # pacman
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        sudo rm -rf $HOME/.config/pacman
+        cp -r $DOTFILES/.config/pacman $HOME/.config
+        sudo ln -sf $HOME/.config/pacman/pacman.conf /etc
+        sudo chown root: $HOME/.config/pacman/pacman.conf
+    fi
+
+    current_dir=$(pwd)
+
+    # i3
+    rm -rf $HOME/.config/i3
+    cp -r $DOTFILES/.config/i3 $HOME/.config
+
+    mkdir -p ~/Projects ~/Music ~/Picutres ~/Videos ~/Downloads
+
+    # Disable annoying pavucontrol beep
+    volume_change_file=/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga
+    [[ -f $volume_change_file ]] && sudo mv $volume_change_file \
+                                            $volume_change_file-DISCARDED-TOO-ANNOYING
+
+    # Disable beep on boot
+    echo 'blacklist pcspkr' | sudo tee /etc/modprobe.d/nobeep.confc > /dev/null
+
+    # audiocast
+    rm -rf $HOME/audiocast
+    git clone https://github.com/vilari-mickopf/audiocast.git $HOME/audiocast
+    cd $HOME/audiocast
+    ./install server
+    cd $current_dir
+    rm -rf $HOME/audiocast
+
+    # touchpad
+    sudo rm -rf $HOME/.config/touchpad
+    cp -r $DOTFILES/.config/touchpad $HOME/.config
+    sudo ln -sf $HOME/.config/touchpad/* /etc/X11/xorg.conf.d
+    sudo chown -R root: $HOME/.config/touchpad/
+
+    # pam -- wait only 300ms instead of few seconds on authentication failure
+    sudo rm -rf $HOME/.config/pam
+    cp -r $DOTFILES/.config/pam $HOME/.config
+    sudo ln -sf $HOME/.config/pam/system-auth /etc/pam.d
+    sudo chown root: $HOME/.config/pam/system-auth
+
+    # security -- disable locking the account on three consecutive authentication failures
+    sudo rm -rf $HOME/.config/security
+    cp -r $DOTFILES/.config/security $HOME/.config
+    sudo ln -sf $HOME/.config/security/faillock.conf /etc/security
+    sudo chown root: $HOME/.config/security/faillock.conf
+
+    sudo sudo ln -sf $HOME/.config/security/limits.conf /etc/security
+    sudo chown root: $HOME/.config/security/limits.conf
+
+    # systemd
+    sudo rm -rf $HOME/.config/systemd
+    cp -r $DOTFILES/.config/systemd $HOME/.config
+    sudo ln -sf $HOME/.config/systemd/journald.conf /etc/systemd/
+    sudo chown root: $HOME/.config/systemd/journald.conf
+
+    # pulse
+    cp -r $DOTFILES/.config/pulse $HOME/.config
+
+    # picom
+    cp -r $DOTFILES/.config/picom $HOME/.config
+
+    # Xresources
+    cp -r $DOTFILES/.config/xorg $HOME/.config
+    sudo ln -sf $HOME/.config/xorg /root/.config
+
+    # terminal
+    rm -rf $HOME/.config/suckless/st
+    git clone https://github.com/vilari-mickopf/st.git $HOME/.config/suckless/st
+    cd $HOME/.config/suckless/st
+    sudo make clean install
+    cd $current_dir
+
+    # ranger
+    cp -r $DOTFILES/.config/ranger $HOME/.config
+    sudo ln -sf $HOME/.config/ranger /root/.config
+
+    # feh
+    cp -r $DOTFILES/.config/feh $HOME/.config
+
+    # vlc
+    rm -rf $HOME/.local/share/vlc/skins2
+    mkdir -p $HOME/.local/share/vlc
+    cp -r $DOTFILES/.local/share/vlc/skins2 $HOME/.local/share/vlc
+
+    # zathura
+    cp -r $DOTFILES/.config/zathura $HOME/.config
+
+    # mpd
+    cp -r $DOTFILES/.config/mpd $HOME/.config
+    systemctl --user start mpd
+    systemctl --user enable mpd
+
+    # ncmpcpp
+    cp -r $DOTFILES/.config/ncmpcpp $HOME/.config
+
+    # ncpamixer
+    cp $DOTFILES/.config/ncpamixer.conf $HOME/.config
+
+    # git
+    cp -r $DOTFILES/.config/git $HOME/.config
+    git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+
+    # mimeapps
+    cp $DOTFILES/.config/mimeapps.list $HOME/.config
+    sudo ln -sf $HOME/.config/mimeapps.list /root/.config
+
+    # wicd
+    # TODO: add wicd setup
+    sudo rm -rf $HOME/.config/wicd
+    cp -r $DOTFILES/.config/wicd $HOME/.config
+    sudo rm -rf /etc/wicd/scripts
+    sudo ln -sf $HOME/.config/wicd/scripts /etc/wicd
+    sudo chown -R root: $HOME/.config/wicd/scripts
+    sudo systemctl enable wicd
+    sudo systemctl start wicd
+
+    # acpid
+    sudo rm -rf $HOME/.config/acpi
+    cp -r $DOTFILES/.config/acpi $HOME/.config
+    sudo ln -sf $HOME/.config/acpi/handler.sh /etc/acpi
+    sudo chown root: $HOME/.config/acpi/handler.sh
+    sudo systemctl enable acpid
+    sudo systemctl start acpid
+
+    # ly
+    sudo rm -rf $HOME/.config/ly
+    cp -r $DOTFILES/.config/ly $HOME/.config
+    sudo ln -sf $HOME/.config/ly/config.ini /etc/ly
+    sudo systemctl enable ly
+    sudo systemctl start ly
+
+    # mkinitcpio
+    sudo rm -rf $HOME/.config/mkinitcpio
+    cp -r $DOTFILES/.config/mkinitcpio $HOME/.config
+    sudo ln -sf $HOME/.config/mkinitcpio/vconsole.conf /etc
+    sudo chown root: $HOME/.config/mkinitcpio/vconsole.conf
+
+    sudo ln -sf $HOME/.config/mkinitcpio/mkinitcpio.conf /etc
+    sudo chown root: $HOME/.config/mkinitcpio/mkinitcpio.conf
+
+    sudo mkinitcpio -p linux
+
+    # oblogout
+    sudo rm -rf $HOME/.config/oblogout
+    cp -r $DOTFILES/.config/oblogout $HOME/.config
+    sudo ln -sf $HOME/.config/oblogout/oblogout.conf /etc/oblogout.conf
+    sudo chown root: $HOME/.config/oblogout/oblogout.conf
+
+    git clone https://github.com/bruhensant/Adeos-ArchLabs.git $HOME/Adeos-ArchLabs
+    sudo cp -r $HOME/Adeos-ArchLabs/adeos-archlabs /usr/share/themes
+    rm -rf $HOME/Adeos-ArchLabs
+
+    # Non sudo wireshark
+    sudo usermod -a -G wireshark $USER
+
+    # hibernate on low battery
+    sudo systemctl enable upower
+    sudo systemctl start upower
+
+    # gtkrc
+    cp -r $DOTFILES/.config/gtk-2.0 $HOME/.config
+    cp -r $DOTFILES/.config/gtk-3.0 $HOME/.config
+
+    cp -r $DOTFILES/Pictures $HOME
+    cp -r $DOTFILES/Videos $HOME
+
+
+    # slack theme: #282C34,#272C33,#D19A66,#282C34,#282C34,#ABB2BF,#98C379,#62AFEE,#282C34,#ABB2BF
+    # duckduckgo theme: onedarktheme
+
+    return 0
+}
+
+setup_boot() {
+    echo "Setting boot"
+
+    [[ -z $(ls /sys/firmware/efi/efivars/) ]] && echo 'efi not available' && return 1
+
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(refind)
+
+        install_packages "${packages[*]}"
+        [[ $? != 0 && $? != 1 ]] && return $?
+    fi
+
+    # Config template
+    cp -r $DOTFILES/.config/refind $HOME/.config/
+
+    # Gen config
+    root=$(grep '/ ' /etc/fstab |sed 's/\ .*//' | awk '{ print $1 }')
+    swap=$(grep 'swap ' /etc/fstab |sed 's/\ .*//' | awk '{ print $1 }')
+    option='resume=<swap> root=<root> rw add_efi_memmap'
+    new_option="resume=$swap root=$root rw add_efi_memmap"
+    sudo cat $HOME/.config/refind/refind_template.conf | \
+        sed "s/$option/$new_option/g" | sudo tee /boot/EFI/refind/refind.conf > /dev/null
+
+    # Theme
+    sudo rm -rf /boot/EFI/refind/themes/rEFInd-minimal
+    sudo git clone https://github.com/EvanPurkhiser/rEFInd-minimal.git \
+              /boot/EFI/refind/themes/rEFInd-minimal
+
+    return 0
+}
+
+setup_sh() {
+    echo 'Setting shell'
+
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(git wget curl fzf glib2 zsh zsh-completions bash-completion
+                  zsh-autosuggestions zsh-syntax-highlighting)
+
+        install_packages "${packages[*]}"
+        [[ $? != 0 && $? != 1 ]] && return $?
+    fi
+
+    chsh -s /bin/zsh
+    sudo chsh -s /bin/zsh
+
+    sudo rm -rf $HOME/.config/zsh
+    cp -r $DOTFILES/.config/zsh $HOME/.config
+    sudo chown -R root: $HOME/.config/zsh/zprofile
+    sudo ln -sf $HOME/.config/zsh/zprofile /etc/zsh
+    ln -sf $HOME/.config/zsh/zshrc $HOME/.config/zsh/.zshrc
+
+    # Sudo
+    sudo mkdir -p /root/.config/zsh
+    sudo ln -sf $HOME/.config/zsh/zshrc /root/.config/zsh/.zshrc
+    sudo ln -sf $HOME/.config/zsh/completion /root/.config/zsh
+    sudo ln -sf $HOME/.config/zsh/themes /root/.config/zsh
+    sudo ln -sf $HOME/.config/zsh/plugins /root/.config/zsh
+
+    return 0
+}
+
+setup_vim() {
+    echo 'Setting vim'
+
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(curl python neovim python-pynvim python2-pynvim xsel xclip
+                  python-language-server python-pycodestyle python-jedi
+                  python-flake8-debugger flake8 autopep8 jupyter screen
+                  ccls lldb cmake gcc astyle gdb gdb-common
+                  bash-language-server vim-language-server
+                  octave hasktags ctags the_silver_searcher ripgrep
+                  zathura zathura-pdf-mupdf zathura-djvu zathura-ps
+                  yarn r r-markdown pandoc pandoc-citeproc)
+
+        install_packages "${packages[*]}"
+        [[ $? != 0 && $? != 1 ]] && return $?
+
+        groups=(texlive-most texlive-lang)
+        install_groups "${groups[*]}"
+        [[ $? != 0 && $? != 1 ]] && return $?
+    fi
+
+    rm -rf $HOME/.config/nvim/
+    cp -r $DOTFILES/.config/nvim/ $HOME/.config/
+
+    rm -rf $HOME/.local/share/nvim/site
+    mkdir -p $HOME/.local/share/nvim/
+    cp -r $DOTFILES/.local/share/nvim/site $HOME/.local/share/nvim/
+
+    # Packet manager
+    curl https://raw.githubusercontent.com/Shougo/dein.vim/master/bin/installer.sh > installer.sh
+    sh installer.sh ~/.cache/dein
+    rm installer.sh
+
+    # Flake
+    cp $DOTFILES/.config/flake8 $HOME/.config/
+
+    # Install stuff
+    nvim +DeinInstall +UpdateRemotePlugins '+TSInstall all' '+VimspectorInstall vscode-cpptools debugpy'
+
+    return 0
+}
+
+clean_up() {
+    current_dir=$(pwd)
+
+    cd $HOME/.dotfiles
+    find . -maxdepth 1 -type d,f ! -iname .git -exec rm -rvf {} \; > /dev/null 2>&1
+
+    cd $current_dir
+
+    return 0
+}
+
+
+INSTALL_PKGS=1
+parsed_args=$(getopt -a -n rice \
+                     -o hwvsbac \
+                     --long help,wm,vim,sh,boot,all,config-only -- "$@")
+
+[[ $? != 0 ]] && usage && exit
+
+eval set -- "$parsed_args"
+while :; do
+    case "$1" in
+        -h | --help)
+            usage;
+            exit ;;
+        -a | --all)
+            opts=(wm sh boot vim);
+            shift ;;
+        -w | --wm)
+            (printf '%s\n' "${opts[@]}" | grep -xq 'wm') || opts+=(wm);
+            shift ;;
+        -s | --sh)
+            (printf '%s\n' "${opts[@]}" | grep -xq 'sh') || opts+=(sh);
+            shift ;;
+        -b | --boot)
+            (printf '%s\n' "${opts[@]}" | grep -xq 'boot') || opts+=(boot);
+            shift ;;
+        -v | --vim)
+            (printf '%s\n' "${opts[@]}" | grep -xq 'vim') || opts+=(vim);
+            shift ;;
+        -c | --config-only)
+            INSTALL_PKGS=0;
+            shift ;;
+        --)
+            shift;
+            break ;;
+        *)
+            echo "Unexpected option: $1";
+            usage;
+            exit ;;
+    esac
+done
+
+# If no option is specified
+[[ ${#opts[@]} == 0 ]] && opts=(wm sh boot vim)
+
+get_dotfiles
+[[ $? != 0 ]] && echo 'Error getting dotfiles' && exit
+
+if [[ $INSTALL_PKGS == 1 ]]; then
+    setup_yay
+    [[ $? != 0 && $? != 1 ]] && echo 'Error getting yay' && exit
+fi
+
+for opt in ${opts[@]}; do
+    if [[ $opt == wm ]]; then
+        setup_wm
+        [[ $? != 0 ]] && echo 'Error setting wm' && exit
+    elif [[ $opt == sh ]]; then
+        setup_sh
+        [[ $? != 0 ]] && echo 'Error setting sh' && exit
+    elif [[ $opt == boot ]]; then
+        setup_boot
+        ret=$?
+        [[ $ret == 1 ]] && echo 'Skipping' && continue
+        [[ $ret != 0 ]] && echo 'Error setting boot' && exit
+    elif [[ $opt == vim ]]; then
+        setup_vim
+        [[ $? != 0 ]] && echo 'Error setting vim' && exit
+    else
+        echo 'Unknown option' && exit
+    fi
+done
+
+clean_up
+[[ $? != 0 ]] && echo 'Error cleaning' && exit
