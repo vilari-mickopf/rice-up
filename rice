@@ -116,7 +116,7 @@ setup_wm() {
                   udiskie dmenu rofi thunar ranger ntfs-3g ueberzug highlight
                   dragon-drag-and-drop ponymix xkb-switch ncpamixer calcurse
                   xorg-setxkbmap xorg-xset xorg-xsetroot ly perl-file-mimeinfo
-                  checkupdates+aur wmctrl curl wget bootiso
+                  checkupdates+aur wmctrl curl wget bootiso dunst
                   paper-icon-theme-git xcursor-vanilla-dmz arc-gtk-theme
                   gtk-engine-murrine xurls atool python-bidi dtrx
                   bzip2 cpio gzip lha xz lzop p7zip tar unace unrar zip unzip
@@ -195,6 +195,9 @@ setup_wm() {
 
     # pulse
     cp -r $DOTFILES/.config/pulse $HOME/.config
+
+    # dunst
+    cp -r $DOTFILES/.config/dunst $HOME/.config
 
     # picom
     cp -r $DOTFILES/.config/picom $HOME/.config
