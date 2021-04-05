@@ -124,7 +124,7 @@ setup_wm() {
                   noto-fonts-cjk noto-fonts-emoji noto-fonts-extra
                   awesome-terminal-fonts python-fontawesome $adobe_fonts
                   chromium skypeforlinux-stable-bin slack-desktop viber remmina
-                  oblogout-py3-git)
+                  adeos-oblogout-git oblogout-py3-git)
 
         install_packages "${packages[*]}"
         [[ $? != 0 && $? != 1 ]] && return $?
@@ -285,10 +285,6 @@ setup_wm() {
     cp -r $DOTFILES/.config/oblogout $HOME/.config
     sudo ln -sf $HOME/.config/oblogout/oblogout.conf /etc/oblogout.conf
     sudo chown root: $HOME/.config/oblogout/oblogout.conf
-
-    git clone https://github.com/bruhensant/Adeos-ArchLabs.git $HOME/Adeos-ArchLabs
-    sudo cp -r $HOME/Adeos-ArchLabs/adeos-archlabs /usr/share/themes
-    rm -rf $HOME/Adeos-ArchLabs
 
     # Non sudo wireshark
     sudo usermod -a -G wireshark $USER
