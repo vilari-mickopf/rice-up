@@ -346,7 +346,7 @@ setup_sh() {
 
     if [[ $INSTALL_PKGS == 1 ]]; then
         packages=(git wget curl fzf glib2 zsh zsh-completions bash-completion
-                  zsh-autosuggestions zsh-syntax-highlighting)
+                  zsh-autosuggestions zsh-syntax-highlighting conda-zsh-completion)
 
         install_packages "${packages[*]}"
         [[ $? != 0 && $? != 1 ]] && return $?
