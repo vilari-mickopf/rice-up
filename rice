@@ -106,7 +106,7 @@ setup_wm() {
         adobe_fonts=$(pacman -Ssq adobe-source)
         packages=(i3-gaps i3blocks i3lock-color alternating-layouts-git
                   aic94xx-firmware wd719x-firmware upd72020x-fw libinput upower
-                  mkinitcpio-colors-git picom xidlehook light parcellite
+                  mkinitcpio-colors-git picom-git xidlehook light-git parcellite
                   python-pyalsa alsa-utils alsa-firmware alsa-lib alsa-oss
                   alsa-plugins pulseaudio pulseaudio-alsa pulseaudio-rtp
                   pavucontrol mpv nmap netcat wireless_tools net-tools arp-scan
@@ -118,13 +118,13 @@ setup_wm() {
                   xorg-setxkbmap xorg-xset xorg-xsetroot ly perl-file-mimeinfo
                   checkupdates+aur wmctrl curl wget bootiso dunst i3-swallow
                   paper-icon-theme-git xcursor-vanilla-dmz arc-gtk-theme
-                  gtk-engine-murrine xurls atool python-bidi dtrx
+                  gtk-engine-murrine xurls atool python-bidi dtrx dash
                   bzip2 cpio gzip lha xz lzop p7zip tar unace unrar zip unzip
                   ttf-ubuntu-font-family otf-font-awesome noto-fonts
-                  noto-fonts-cjk noto-fonts-emoji noto-fonts-extra
+                  noto-fonts-cjk noto-fonts-emoji noto-fonts-extra ttf-symbola
                   awesome-terminal-fonts python-fontawesome $adobe_fonts
                   chromium skypeforlinux-stable-bin slack-desktop viber remmina
-                  adeos-oblogout-git oblogout-py3-git)
+                  adeos-oblogout-git oblogout-py3-git sweet-gtk-theme-nova-git)
 
         install_packages "${packages[*]}"
         [[ $? != 0 && $? != 1 ]] && return $?
@@ -193,6 +193,9 @@ setup_wm() {
     sudo ln -sf $HOME/.config/systemd/journald.conf /etc/systemd/
     sudo chown root: $HOME/.config/systemd/journald.conf
 
+    # Set dash as sh
+    sudo ln -sfT dash /usr/bin/sh
+
     # pulse
     cp -r $DOTFILES/.config/pulse $HOME/.config
 
@@ -203,8 +206,8 @@ setup_wm() {
     cp -r $DOTFILES/.config/picom $HOME/.config
 
     # Xresources
-    cp -r $DOTFILES/.config/xorg $HOME/.config
-    sudo ln -sf $HOME/.config/xorg /root/.config
+    cp -r $DOTFILES/.config/Xresources.d $HOME/.config
+    sudo ln -sf $HOME/.config/Xresources.d /root/.config
 
     # terminal
     rm -rf $HOME/.config/suckless/st
@@ -300,9 +303,17 @@ setup_wm() {
     cp -r $DOTFILES/.config/gtk-2.0 $HOME/.config
     cp -r $DOTFILES/.config/gtk-3.0 $HOME/.config
 
+    # cursor
+    cp -r $DOTFILES/.local/share/icons/default $HOME/.local/share/icons
+    sudo cp -r $DOTFILES/.local/share/icons/default /usr/share/icons
+
+    # user dirs
+    cp $DOTFILES/.config/user-dirs.dirs $HOME/.config
+    cp $DOTFILES/.config/user-dirs.locale $HOME/.config
+
+    # wallpapers
     cp -r $DOTFILES/Pictures $HOME
     cp -r $DOTFILES/Videos $HOME
-
 
     # slack theme: #282C34,#272C33,#D19A66,#282C34,#282C34,#ABB2BF,#98C379,#62AFEE,#282C34,#ABB2BF
     # duckduckgo theme: onedarktheme
@@ -346,8 +357,8 @@ setup_sh() {
 
     if [[ $INSTALL_PKGS == 1 ]]; then
         packages=(git wget curl fzf glib2 zsh zsh-completions bash-completion
-                  zsh-autosuggestions zsh-syntax-highlighting conda-zsh-completion)
-
+                  zsh-autosuggestions zsh-syntax-highlighting
+                  zsh-vi-mode-git conda-zsh-completion)
         install_packages "${packages[*]}"
         [[ $? != 0 && $? != 1 ]] && return $?
     fi
@@ -378,7 +389,7 @@ setup_vim() {
         packages=(curl python neovim python-pynvim python2-pynvim xsel xclip
                   python-language-server python-pycodestyle python-jedi
                   python-flake8-debugger flake8 autopep8 jupyter screen
-                  ccls lldb cmake gcc astyle gdb gdb-common
+                  ccls lldb cmake gcc astyle gdb gdb-common lua-language-server
                   bash-language-server vim-language-server
                   octave hasktags ctags the_silver_searcher ripgrep
                   zathura zathura-pdf-mupdf zathura-djvu zathura-ps
@@ -392,12 +403,12 @@ setup_vim() {
         [[ $? != 0 && $? != 1 ]] && return $?
     fi
 
-    rm -rf $HOME/.config/nvim/
-    cp -r $DOTFILES/.config/nvim/ $HOME/.config/
+    rm -rf $HOME/.config/nvim
+    cp -r $DOTFILES/.config/nvim $HOME/.config
 
     rm -rf $HOME/.local/share/nvim/site
-    mkdir -p $HOME/.local/share/nvim/
-    cp -r $DOTFILES/.local/share/nvim/site $HOME/.local/share/nvim/
+    mkdir -p $HOME/.local/share/nvim
+    cp -r $DOTFILES/.local/share/nvim/site $HOME/.local/share/nvim
 
     # Packet manager
     curl https://raw.githubusercontent.com/Shougo/dein.vim/master/bin/installer.sh > installer.sh
@@ -405,7 +416,7 @@ setup_vim() {
     rm installer.sh
 
     # Flake
-    cp $DOTFILES/.config/flake8 $HOME/.config/
+    cp $DOTFILES/.config/flake8 $HOME/.config
 
     # Install stuff
     nvim +DeinInstall +UpdateRemotePlugins '+TSInstall all' '+VimspectorInstall vscode-cpptools debugpy'
