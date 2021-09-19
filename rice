@@ -591,9 +591,13 @@ setup_boot() {
 
     echo -e "${BLUE}Configure refind${RESET}"
     root=$(df / | sed '1d' | awk '{ print $1 }')
+    root_uuid=$(sudo blkid $root | grep -o '\bPARTUUID=.*' \
+                                 | sed 's/^PARTUUID="//' | sed 's/"$//')
+
     swap=$(cat /proc/swaps | sed '1d' | awk '{ print $1 }')
-    root_uuid=$(sudo blkid $root | awk '{ print $5 }' | sed 's/"//'g)
-    swap_uuid=$(sudo blkid $swap | awk '{ print $4 }' | sed 's/"//'g)
+    swap_uuid=$(sudo blkid $swap | grep -o '\bPARTUUID=.*' \
+                                 | sed 's/^PARTUUID="//' | sed 's/"$//')
+
     option='resume=<swap> root=<root> rw add_efi_memmap'
     new_option="resume=$swap_uuid root=$root_uuid rw add_efi_memmap"
     check sudo cat $HOME/.config/refind/refind_template.conf | \
