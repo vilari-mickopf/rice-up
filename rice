@@ -779,7 +779,7 @@ for opt in ${opts[@]}; do
     elif [[ $opt == vim ]]; then
         setup_vim
     else
-        echo -e "${RED}Unknown option${RESET}" && exit
+        echo -e "${RED}Unknown option:${RESET} ${opt}" && exit
     fi
 done
 
