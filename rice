@@ -2,6 +2,14 @@
 
 DOTFILES=$HOME/.dotfiles
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
 
 usage() {
     echo 'Usage: rice [-w | --wm] [-b | --boot] [-s | --sh] [-v | --vim] [-a | --all]'
@@ -17,6 +25,18 @@ usage() {
     echo '                      proper locations.'
 }
 
+continue_prompt() {
+    read -p ":: $(echo -e ${YELLOW}Proceed with ricing?${RESET} [y/N]: )" confirm && \
+        [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || return 1
+
+    return 0
+}
+
+check() {
+    local command=("$@")
+    "${command[@]}" || continue_prompt || exit
+}
+
 is_installed() {
     package=$1
     pacman -Qi $package &>/dev/null
@@ -25,46 +45,27 @@ is_installed() {
 
 setup_yay() {
     is_installed yay
-    [[ $? == 0 ]] && return 1
+    [[ $? == 0 ]] && return
 
-    echo 'Yay is not installed!'
-    echo 'Installing yay - Yet another Yaourt'
+    echo -e "${YELLOW}Yay is not installed!${RESET}"
+    echo -e "${CYAN}Installing yay - Yet another Yaourt${RESET}"
 
     # Get git
     if [[ $INSTALL_PKGS == 1 ]]; then
         is_installed git
-        [[ $? != 0 ]] && sudo pacman -S git --noconfirm
+        [[ $? != 0 ]] && check sudo pacman -S git --noconfirm
     fi
 
-    # Get yay
-    git clone https://aur.archlinux.org/yay.git $HOME/yay
+    echo -e "${BLUE}Get yay${RESET}"
+    check git clone https://aur.archlinux.org/yay.git $HOME/yay
 
-    # Install yay
+    echo -e "${BLUE}Makepkg yay${RESET}"
     current_dir=$(pwd)
-    cd $HOME/yay
-    makepkg -si --noconfirm
+    check cd $HOME/yay
+    check makepkg -si --noconfirm
 
     cd $current_dir
-    rm -rf $HOME/yay
-
-    return 0
-}
-
-get_dotfiles() {
-    echo 'Collecting dotfiles'
-
-    # Get git
-    if [[ $INSTALL_PKGS == 1 ]]; then
-        is_installed git
-        [[ $? != 0 ]] && sudo pacman -S git --noconfirm
-    fi
-
-    rm -rf $DOTFILES
-    git clone https://www.github.com/vilari-mickopf/dotfiles.git $DOTFILES
-
-    git --git-dir=$DOTFILES/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
-
-    return 0
+    [[ -d $HOME/yay ]] && rm -rf $HOME/yay
 }
 
 install_packages() {
@@ -73,16 +74,17 @@ install_packages() {
     to_install=()
     for pkg in ${pkgs[@]}; do
         is_installed $pkg
-        [[ $? == 0 ]] && echo "$pkg is already installed." && continue
+        [[ $? == 0 ]] && echo -e "${YELLOW}$pkg${RESET} is already installed." && continue
         to_install+=($pkg)
     done
 
     [[ ${#to_install[@]} == 0 ]] && \
-        echo 'All packages are already installed.' && return 1
+        echo -e "${GREEN}All packages are already installed.${RESET}\n" && return 0
 
-    echo "Packages not installed: ${to_install[@]}"
+    echo -e "${YELLOW}Packages not installed:${RESET} ${to_install[@]}"
     yay -S ${to_install[@]} --noconfirm --overwrite "*"
-    echo 'Packages installed.'
+    [[ $? != 0 ]] && echo -e "${RED}Failed to install packages.${RESET}\n" && return 1
+    echo -e "${GREEN}Packages installed.${RESET}\n"
 
     return 0
 }
@@ -92,347 +94,627 @@ install_groups() {
 
     for group in ${groups[@]}; do
         group_packages=$(pacman -Sg $group | sed 's/[^ ]* //')
-        install_packages "$group_packages"
-        [[ $? != 0 && $? != 1 ]] && return $?
+        check install_packages "$group_packages"
     done
 
     return 0
 }
 
-setup_wm() {
-    echo 'Setting window manager'
+get_dotfiles() {
+    echo -e "${CYAN}Collecting dotfiles${RESET}"
 
     if [[ $INSTALL_PKGS == 1 ]]; then
-        adobe_fonts=$(pacman -Ssq adobe-source)
-        packages=(i3-gaps i3blocks i3lock-color alternating-layouts-git
-                  aic94xx-firmware wd719x-firmware upd72020x-fw libinput upower
-                  mkinitcpio-colors-git picom-git xidlehook light-git parcellite
-                  python-pyalsa alsa-utils alsa-firmware alsa-lib alsa-oss
-                  alsa-plugins pulseaudio pulseaudio-alsa pulseaudio-rtp
-                  pavucontrol mpv nmap netcat wireless_tools net-tools arp-scan
-                  arandr srandrd feh maim mpd ncmpcpp mplayer
-                  zathura zathura-pdf-mupdf zathura-djvu zathura-ps battop
-                  timidity++ wildmidi git python-colorama lxappearance
-                  udiskie dmenu rofi thunar ranger ntfs-3g ueberzug highlight
-                  dragon-drag-and-drop ponymix xkb-switch ncpamixer calcurse
-                  xorg-setxkbmap xorg-xset xorg-xsetroot ly perl-file-mimeinfo
-                  checkupdates+aur wmctrl curl wget bootiso dunst i3-swallow
-                  paper-icon-theme-git xcursor-vanilla-dmz arc-gtk-theme
-                  gtk-engine-murrine xurls atool python-bidi dtrx dash
-                  bzip2 cpio gzip lha xz lzop p7zip tar unace unrar zip unzip
-                  ttf-ubuntu-font-family otf-font-awesome noto-fonts
-                  noto-fonts-cjk noto-fonts-emoji noto-fonts-extra ttf-symbola
-                  awesome-terminal-fonts python-fontawesome $adobe_fonts
-                  chromium skypeforlinux-stable-bin slack-desktop viber remmina
-                  adeos-oblogout-git oblogout-py3-git sweet-gtk-theme-nova-git)
-
-        install_packages "${packages[*]}"
-        [[ $? != 0 && $? != 1 ]] && return $?
-
-        groups=(xorg)
-        install_groups "${groups[*]}"
-        [[ $? != 0 && $? != 1 ]] && return $?
+        echo -e "${CYAN}Installing git${RESET}"
+        packages=(git)
+        check install_packages "${packages[*]}"
     fi
 
-    # pacman
+    [[ -d $DOTFILES ]] && rm -rf $DOTFILES
+    check git clone https://github.com/vilari-mickopf/dotfiles.git $DOTFILES
+}
+
+setup_i3() {
+    echo -e "${MAGENTA}Setup i3${RESET}"
     if [[ $INSTALL_PKGS == 1 ]]; then
-        sudo rm -rf $HOME/.config/pacman
-        cp -r $DOTFILES/.config/pacman $HOME/.config
-        sudo ln -sf $HOME/.config/pacman/pacman.conf /etc
-        sudo chown root: $HOME/.config/pacman/pacman.conf
+        echo -e "${CYAN}Installing i3 packages${RESET}"
+        packages=(i3-gaps i3blocks i3lock-color alternating-layouts-git i3-swallow-git)
+        check install_packages "${packages[*]}"
     fi
 
-    current_dir=$(pwd)
+    echo -e "${BLUE}Configure i3${RESET}"
+    check rm -rf $HOME/.config/i3
+    check cp -r $DOTFILES/.config/i3 $HOME/.config
 
-    # i3
-    rm -rf $HOME/.config/i3
-    cp -r $DOTFILES/.config/i3 $HOME/.config
+    echo -e "${BLUE}Configure user dirs${RESET}"
+    mkdir -p ~/Projects ~/Music ~/Pictures ~/Videos ~/Downloads
+    check cp $DOTFILES/.config/user-dirs.dirs $HOME/.config
+    check cp $DOTFILES/.config/user-dirs.locale $HOME/.config
 
-    mkdir -p ~/Projects ~/Music ~/Picutres ~/Videos ~/Downloads
+    echo -e "${BLUE}Configure mimeapps${RESET}"
+    check cp $DOTFILES/.config/mimeapps.list $HOME/.config
+    check sudo ln -sf $HOME/.config/mimeapps.list /root/.config
 
-    # Disable annoying pavucontrol beep
-    volume_change_file=/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga
-    [[ -f $volume_change_file ]] && sudo mv $volume_change_file \
-                                            $volume_change_file-DISCARDED-TOO-ANNOYING
+    echo -e "${BLUE}Configure wallpaper${RESET}"
+    check cp -r $DOTFILES/Pictures $HOME
+    check cp -r $DOTFILES/Videos $HOME
 
-    # Disable beep on boot
-    echo 'blacklist pcspkr' | sudo tee /etc/modprobe.d/nobeep.confc > /dev/null
+    echo -e "${BLUE}Configure gtk${RESET}"
+    check cp -r $DOTFILES/.config/gtk-2.0 $HOME/.config
+    check cp -r $DOTFILES/.config/gtk-3.0 $HOME/.config
 
-    # audiocast
-    rm -rf $HOME/audiocast
-    git clone https://github.com/vilari-mickopf/audiocast.git $HOME/audiocast
-    cd $HOME/audiocast
-    ./install server
-    cd $current_dir
-    rm -rf $HOME/audiocast
-
-    # touchpad
-    sudo rm -rf $HOME/.config/touchpad
-    cp -r $DOTFILES/.config/touchpad $HOME/.config
-    sudo ln -sf $HOME/.config/touchpad/* /etc/X11/xorg.conf.d
-    sudo chown -R root: $HOME/.config/touchpad/
-
-    # pam -- wait only 300ms instead of few seconds on authentication failure
-    sudo rm -rf $HOME/.config/pam
-    cp -r $DOTFILES/.config/pam $HOME/.config
-    sudo ln -sf $HOME/.config/pam/system-auth /etc/pam.d
-    sudo chown root: $HOME/.config/pam/system-auth
+    # wait only 300ms instead of few seconds on authentication failure
+    echo -e "${BLUE}Configure pam${RESET}"
+    check sudo rm -rf $HOME/.config/pam
+    check cp -r $DOTFILES/.config/pam $HOME/.config
+    check sudo ln -sf $HOME/.config/pam/system-auth /etc/pam.d
+    check sudo chown root: $HOME/.config/pam/system-auth
 
     # security -- disable locking the account on three consecutive authentication failures
-    sudo rm -rf $HOME/.config/security
-    cp -r $DOTFILES/.config/security $HOME/.config
-    sudo ln -sf $HOME/.config/security/faillock.conf /etc/security
-    sudo chown root: $HOME/.config/security/faillock.conf
+    echo -e "${BLUE}Configure faillock${RESET}"
+    check sudo rm -rf $HOME/.config/security
+    check cp -r $DOTFILES/.config/security $HOME/.config
+    check sudo ln -sf $HOME/.config/security/faillock.conf /etc/security
+    check sudo chown root: $HOME/.config/security/faillock.conf
 
-    sudo sudo ln -sf $HOME/.config/security/limits.conf /etc/security
-    sudo chown root: $HOME/.config/security/limits.conf
+    echo -e "${BLUE}Configure limits${RESET}"
+    check sudo sudo ln -sf $HOME/.config/security/limits.conf /etc/security
+    check sudo chown root: $HOME/.config/security/limits.conf
 
     # systemd
-    sudo rm -rf $HOME/.config/systemd
-    cp -r $DOTFILES/.config/systemd $HOME/.config
-    sudo ln -sf $HOME/.config/systemd/journald.conf /etc/systemd/
-    sudo chown root: $HOME/.config/systemd/journald.conf
+    echo -e "${BLUE}Configure journald${RESET}"
+    check sudo rm -rf $HOME/.config/systemd
+    check cp -r $DOTFILES/.config/systemd $HOME/.config
+    check sudo ln -sf $HOME/.config/systemd/journald.conf /etc/systemd/
+    check sudo chown root: $HOME/.config/systemd/journald.conf
+}
 
-    # Set dash as sh
-    sudo ln -sfT dash /usr/bin/sh
+setup_theme() {
+    echo -e "${MAGENTA}Setup theme${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing theme packages${RESET}"
+        packages=(sweet-gtk-theme-nova-git lxappearance paper-icon-theme-git
+                  xcursor-vanilla-dmz arc-gtk-theme gtk-engine-murrine)
+        check install_packages "${packages[*]}"
+    fi
 
-    # pulse
-    cp -r $DOTFILES/.config/pulse $HOME/.config
+    echo -e "${BLUE}Configure icons${RESET}"
+    check cp -r $DOTFILES/.local/share/icons/default $HOME/.local/share/icons
+    check sudo cp -r $DOTFILES/.local/share/icons/default /usr/share/icons
+}
 
-    # dunst
-    cp -r $DOTFILES/.config/dunst $HOME/.config
+setup_pulse() {
+    echo -e "${MAGENTA}Setup pulseaudio${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing pulseaudio packages${RESET}"
+        packages=(pulseaudio pulseaudio-alsa ncpamixer pavucontrol)
+        check install_packages "${packages[*]}"
+    fi
 
-    # picom
-    cp -r $DOTFILES/.config/picom $HOME/.config
+    echo -e "${BLUE}Configure pulseaudio${RESET}"
+    check cp -r $DOTFILES/.config/pulse $HOME/.config
 
-    # Xresources
-    cp -r $DOTFILES/.config/Xresources.d $HOME/.config
-    sudo ln -sf $HOME/.config/Xresources.d /root/.config
+    echo -e "${BLUE}Configure ncpamixer${RESET}"
+    check cp $DOTFILES/.config/ncpamixer.conf $HOME/.config
 
-    # terminal
-    rm -rf $HOME/.config/suckless/st
-    git clone https://github.com/vilari-mickopf/st.git $HOME/.config/suckless/st
-    cd $HOME/.config/suckless/st
-    sudo make clean install
-    cd $current_dir
+    echo -e "${BLUE}Configure pavucontrol${RESET}"
+    volume_change_file=/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga
+    [[ -f $volume_change_file ]] && check sudo mv "$volume_change_file" \
+                                                  "$volume_change_file-DISCARDED-TOO-ANNOYING"
 
-    # ranger
-    cp -r $DOTFILES/.config/ranger $HOME/.config
-    sudo ln -sf $HOME/.config/ranger /root/.config
+    echo -e "${BLUE}Disable beep on boot${RESET}"
+    echo 'blacklist pcspkr' | sudo tee /etc/modprobe.d/nobeep.conf > /dev/null
 
-    # feh
-    cp -r $DOTFILES/.config/feh $HOME/.config
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Install audiocast packages${RESET}"
+        packages=(pulseaudio pulseaudio-rtp nmap netcat)
+        check install_packages "${packages[*]}"
+    fi
 
-    # vlc
-    rm -rf $HOME/.local/share/vlc/skins2
-    mkdir -p $HOME/.local/share/vlc
-    cp -r $DOTFILES/.local/share/vlc/skins2 $HOME/.local/share/vlc
+    echo -e "${BLUE}Configure audiocast${RESET}"
+    current_dir=$(pwd)
 
-    # zathura
-    cp -r $DOTFILES/.config/zathura $HOME/.config
+    # audiocast
+    [[ -d $HOME/audiocast ]] && rm -rf $HOME/audiocast
+    check git clone https://github.com/vilari-mickopf/audiocast.git $HOME/audiocast
+    check cd $HOME/audiocast
+    check ./install server
+    check cd $current_dir
+    [[ -d $HOME/audiocast ]] && rm -rf $HOME/audiocast
+}
 
-    # mpd
-    cp -r $DOTFILES/.config/mpd $HOME/.config
-    systemctl --user start mpd
-    systemctl --user enable mpd
+setup_touch() {
+    echo -e "${MAGENTA}Setup touchpad${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing touchpad packages${RESET}"
+        packages=(libinput)
+        check install_packages "${packages[*]}"
+    fi
 
-    # ncmpcpp
-    cp -r $DOTFILES/.config/ncmpcpp $HOME/.config
+    echo -e "${BLUE}Configure touchpad${RESET}"
+    check sudo rm -rf $HOME/.config/touchpad
+    check cp -r $DOTFILES/.config/touchpad $HOME/.config
+    check sudo ln -sf $HOME/.config/touchpad/* /etc/X11/xorg.conf.d
+    check sudo chown -R root: $HOME/.config/touchpad/
+}
 
-    # ncpamixer
-    cp $DOTFILES/.config/ncpamixer.conf $HOME/.config
+setup_dash() {
+    echo -e "${MAGENTA}Setup dash${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing dash packages${RESET}"
+        packages=(dash)
+        check install_packages "${packages[*]}"
+    fi
 
-    # git
-    cp -r $DOTFILES/.config/git $HOME/.config
-    git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+    echo -e "${BLUE}Configure dash${RESET}"
+    check sudo ln -sfT dash /usr/bin/sh
+}
 
-    # mimeapps
-    cp $DOTFILES/.config/mimeapps.list $HOME/.config
-    sudo ln -sf $HOME/.config/mimeapps.list /root/.config
+setup_dunst() {
+    echo -e "${MAGENTA}Setup dunst${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing dunst packages${RESET}"
+        packages=(dunst)
+        check install_packages "${packages[*]}"
+    fi
 
-    # wicd
+    echo -e "${BLUE}Configure dunst${RESET}"
+    check cp -r $DOTFILES/.config/dunst $HOME/.config
+}
+
+setup_picom() {
+    echo -e "${MAGENTA}Setup picom${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing picom packages${RESET}"
+        packages=(picom-git)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure picom${RESET}"
+    check cp -r $DOTFILES/.config/picom $HOME/.config
+}
+
+setup_rofi() {
+    echo -e "${MAGENTA}Setup rofi${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing rofi packages${RESET}"
+        packages=(rofi)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure rofi${RESET}"
+    check cp -r $DOTFILES/.config/rofi $HOME/.config
+}
+
+setup_xorg() {
+    echo -e "${MAGENTA}Setup xorg${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing xorg packages${RESET}"
+        groups=(xorg)
+        check install_groups "${groups[*]}"
+
+        packages=(xkb-switch xorg-setxkbmap xorg-xset xorg-xsetroot)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure xresources${RESET}"
+    check cp -r $DOTFILES/.config/Xresources.d $HOME/.config
+    check sudo ln -sf $HOME/.config/Xresources.d /root/.config
+}
+
+setup_term() {
+    echo -e "${MAGENTA}Setup terminal${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing terminal packages${RESET}"
+        packages=(xurls)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure terminal${RESET}"
+    current_dir=$(pwd)
+    [[ -d $HOME/.config/suckless/st ]] && rm -rf $HOME/.config/suckless/st
+    check git clone https://github.com/vilari-mickopf/st.git $HOME/.config/suckless/st
+    check cd $HOME/.config/suckless/st
+    check sudo make clean install
+    chek cd $current_dir
+}
+
+setup_ranger() {
+    echo -e "${MAGENTA}Setup ranger${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(ranger ueberzug dragon-drag-and-drop)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure ranger${RESET}"
+    check cp -r $DOTFILES/.config/ranger $HOME/.config
+    check sudo ln -sf $HOME/.config/ranger /root/.config
+}
+
+setup_feh() {
+    echo -e "${MAGENTA}Setup feh${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(feh)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure feh${RESET}"
+    check cp -r $DOTFILES/.config/feh $HOME/.config
+}
+
+setup_zathura() {
+    echo -e "${MAGENTA}Setup magenta${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(zathura zathura-pdf-mupdf zathura-djvu zathura-ps)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure zathura${RESET}"
+    check cp -r $DOTFILES/.config/zathura $HOME/.config
+}
+
+setup_ncmpcpp() {
+    echo -e "${MAGENTA}Setup ncmpcpp${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(mpd ncmpcpp)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure mpd${RESET}"
+    check cp -r $DOTFILES/.config/mpd $HOME/.config
+
+    echo -e "${BLUE}Start mpd services${RESET}"
+    check systemctl --user start mpd
+    check systemctl --user enable mpd
+
+    echo -e "${BLUE}Configure ncmpcpp${RESET}"
+    check cp -r $DOTFILES/.config/ncmpcpp $HOME/.config
+}
+
+setup_wicd() {
+    echo -e "${MAGENTA}Setup wicd${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(wicd-patched)
+        check install_packages "${packages[*]}"
+    fi
+
     # TODO: add wicd setup
-    sudo rm -rf $HOME/.config/wicd
-    cp -r $DOTFILES/.config/wicd $HOME/.config
-    sudo rm -rf /etc/wicd/scripts
-    sudo ln -sf $HOME/.config/wicd/scripts /etc/wicd
-    sudo chown -R root: $HOME/.config/wicd/scripts
-    sudo systemctl enable wicd
-    sudo systemctl start wicd
+    echo -e "${BLUE}Configure wicd${RESET}"
+    [[ -d $HOME/.config/wicd ]] && sudo rm -rf $HOME/.config/wicd
+    check cp -r $DOTFILES/.config/wicd $HOME/.config
+    check sudo rm -rf /etc/wicd/scripts
+    check sudo ln -sf $HOME/.config/wicd/scripts /etc/wicd
+    check sudo chown -R root: $HOME/.config/wicd/scripts
 
-    # acpid
-    sudo rm -rf $HOME/.config/acpi
-    cp -r $DOTFILES/.config/acpi $HOME/.config
-    sudo ln -sf $HOME/.config/acpi/handler.sh /etc/acpi
-    sudo chown root: $HOME/.config/acpi/handler.sh
-    sudo systemctl enable acpid
-    sudo systemctl start acpid
+    echo -e "${BLUE}Start wicd services${RESET}"
+    check sudo systemctl enable wicd
+    check sudo systemctl start wicd
+}
 
-    # ly
-    sudo rm -rf $HOME/.config/ly
-    cp -r $DOTFILES/.config/ly $HOME/.config
-    sudo ln -sf $HOME/.config/ly/config.ini /etc/ly
-    sudo systemctl enable ly
-    sudo systemctl start ly
+setup_acpid() {
+    echo -e "${MAGENTA}Setup acpid${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(acpid)
+        check install_packages "${packages[*]}"
+    fi
 
-    # mkinitcpio
-    sudo rm -rf $HOME/.config/mkinitcpio
-    cp -r $DOTFILES/.config/mkinitcpio $HOME/.config
-    sudo ln -sf $HOME/.config/mkinitcpio/vconsole.conf /etc
-    sudo chown root: $HOME/.config/mkinitcpio/vconsole.conf
+    echo -e "${BLUE}Configure acpi${RESET}"
+    check sudo rm -rf $HOME/.config/acpi
+    check cp -r $DOTFILES/.config/acpi $HOME/.config
+    check sudo ln -sf $HOME/.config/acpi/handler.sh /etc/acpi
+    check sudo chown root: $HOME/.config/acpi/handler.sh
 
-    sudo ln -sf $HOME/.config/mkinitcpio/mkinitcpio.conf /etc
-    sudo chown root: $HOME/.config/mkinitcpio/mkinitcpio.conf
+    echo -e "${BLUE}Start acpi services${RESET}"
+    check sudo systemctl enable acpid
+    check sudo systemctl start acpid
+}
 
-    sudo mkinitcpio -p linux
+setup_ly() {
+    echo -e "${MAGENTA}Setup ly${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(ly)
+        check install_packages "${packages[*]}"
+    fi
 
-    # oblogout
-    sudo rm -rf $HOME/.config/oblogout
-    cp -r $DOTFILES/.config/oblogout $HOME/.config
-    sudo ln -sf $HOME/.config/oblogout/oblogout.conf /etc/oblogout.conf
-    sudo chown root: $HOME/.config/oblogout/oblogout.conf
+    echo -e "${BLUE}Configure ly${RESET}"
+    check sudo rm -rf $HOME/.config/ly
+    check cp -r $DOTFILES/.config/ly $HOME/.config
+    check sudo ln -sf $HOME/.config/ly/config.ini /etc/ly
 
-    # Non sudo wireshark
-    sudo usermod -a -G wireshark $USER
+    echo -e "${BLUE}Start ly services${RESET}"
+    check sudo systemctl enable ly
+    check sudo systemctl start ly
+}
 
-    # hibernate on low battery
-    sudo systemctl enable upower
-    sudo systemctl start upower
+setup_mkinitcpio() {
+    echo -e "${MAGENTA}Setup mkinitcpio${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(mkinitcpio-colors-git)
+        check install_packages "${packages[*]}"
+    fi
 
-    # gtkrc
-    cp -r $DOTFILES/.config/gtk-2.0 $HOME/.config
-    cp -r $DOTFILES/.config/gtk-3.0 $HOME/.config
+    echo -e "${BLUE}Configure mkinitcpio${RESET}"
+    check sudo rm -rf $HOME/.config/mkinitcpio
+    check cp -r $DOTFILES/.config/mkinitcpio $HOME/.config
+    check sudo ln -sf $HOME/.config/mkinitcpio/mkinitcpio.conf /etc
+    check sudo chown root: $HOME/.config/mkinitcpio/mkinitcpio.conf
+    check sudo ln -sf $HOME/.config/mkinitcpio/vconsole.conf /etc
+    check sudo chown root: $HOME/.config/mkinitcpio/vconsole.conf
 
-    # cursor
-    cp -r $DOTFILES/.local/share/icons/default $HOME/.local/share/icons
-    sudo cp -r $DOTFILES/.local/share/icons/default /usr/share/icons
+    echo -e "${BLUE}Generate new image${RESET}"
+    check sudo mkinitcpio -p linux
+}
 
-    # user dirs
-    cp $DOTFILES/.config/user-dirs.dirs $HOME/.config
-    cp $DOTFILES/.config/user-dirs.locale $HOME/.config
+setup_oblogout() {
+    echo -e "${MAGENTA}Setup oblogout${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(adeos-oblogout-git oblogout-py3-git)
+        check install_packages "${packages[*]}"
+    fi
 
-    # wallpapers
-    cp -r $DOTFILES/Pictures $HOME
-    cp -r $DOTFILES/Videos $HOME
+    echo -e "${BLUE}Configure oblogout${RESET}"
+    check sudo rm -rf $HOME/.config/oblogout
+    check cp -r $DOTFILES/.config/oblogout $HOME/.config
+    check sudo ln -sf $HOME/.config/oblogout/oblogout.conf /etc/oblogout.conf
+    check sudo chown root: $HOME/.config/oblogout/oblogout.conf
+}
+
+setup_wireshark() {
+    echo -e "${MAGENTA}Setup wireshark${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(wireshark)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure wireshark${RESET}"
+    check sudo usermod -a -G wireshark $USER
+}
+
+setup_git() {
+    echo -e "${MAGENTA}Setup git${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(git)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Configure git${RESET}"
+    check cp -r $DOTFILES/.config/git $HOME/.config
+    check git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
+}
+
+setup_upower() {
+    echo -e "${MAGENTA}Setup upower${RESET}"
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        packages=(upower)
+        check install_packages "${packages[*]}"
+    fi
+
+    echo -e "${BLUE}Start upower services${RESET}"
+    check sudo systemctl enable upower
+    check sudo systemctl start upower
+}
+
+setup_wm() {
+    echo -e "${MAGENTA}Setting window manager${RESET}"
+
+    if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing firmware packages${RESET}"
+        packages=(aic94xx-firmware wd719x-firmware upd72020x-fw)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing display manager packages${RESET}"
+        packages=(arandr srandrd)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing file manager packages${RESET}"
+        packages=(udiskie dmenu rofi thunar ntfs-3g dtrx file-roller atool bzip2
+                  cpio gzip lha xz lzop p7zip lzip tar unace unrar zip unzip)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing audio base packages${RESET}"
+        packages=(python-pyalsa alsa-utils alsa-firmware alsa-lib alsa-oss
+                  alsa-plugins pulseaudio ponymix)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing network base packages${RESET}"
+        packages=(wireless_tools net-tools arp-scan)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing media player packages${RESET}"
+        packages=(maim mplayer mpv vlc timidity++ wildmidi)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing fonts${RESET}"
+        adobe_fonts=$(pacman -Ssq adobe-source)
+        packages=(ttf-ubuntu-font-family otf-font-awesome noto-fonts
+                  noto-fonts-cjk noto-fonts-emoji noto-fonts-extra ttf-symbola
+                  ttf-joypixels awesome-terminal-fonts python-fontawesome
+                  nerd-fonts-inconsolata $adobe_fonts)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Installing apps${RESET}"
+        # packages=(calcurse battop wmctrl python-colorama curl wget git highlight
+        packages=(calcurse wmctrl python-colorama curl wget git highlight
+                  parcellite bootiso python-bidi light-git xidlehook
+                  google-chrome slack-desktop viber remmina
+                  perl-file-mimeinfo checkupdates+aur)
+        check install_packages "${packages[*]}"
+
+        # pacman
+        echo -e "${MAGENTA}Configuring pacman${RESET}"
+        [[ -d $HOME/.config/pacman ]] && sudo rm -rf $HOME/.config/pacman
+        check cp -r $DOTFILES/.config/pacman $HOME/.config
+        check sudo ln -sf $HOME/.config/pacman/pacman.conf /etc
+        check sudo chown root: $HOME/.config/pacman/pacman.conf
+    fi
+
+    setup_i3 && echo
+    setup_theme && echo
+    setup_pulse && echo
+    setup_touch && echo
+    setup_dash && echo
+    setup_dunst && echo
+    setup_picom && echo
+    setup_rofi && echo
+    setup_xorg && echo
+    setup_term && echo
+    setup_ranger && echo
+    setup_feh && echo
+    setup_zathura && echo
+    setup_ncmpcpp && echo
+    setup_git && echo
+    setup_wicd && echo
+    setup_acpid && echo
+    setup_ly && echo
+    setup_mkinitcpio && echo
+    setup_oblogout && echo
+    setup_wireshark && echo
+    setup_upower && echo
 
     # slack theme: #282C34,#272C33,#D19A66,#282C34,#282C34,#ABB2BF,#98C379,#62AFEE,#282C34,#ABB2BF
     # duckduckgo theme: onedarktheme
-
-    return 0
 }
 
 setup_boot() {
-    echo "Setting boot"
+    echo -e "${MAGENTA}Setting boot${RESET}"
 
-    [[ -z $(ls /sys/firmware/efi/efivars/) ]] && echo 'efi not available' && return 1
+    [[ -z $(ls /sys/firmware/efi/efivars/) ]] \
+            && echo -e "${RED}EFI not available${RESET}" && return
 
     if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing boot packages${RESET}"
         packages=(refind)
-
-        install_packages "${packages[*]}"
-        [[ $? != 0 && $? != 1 ]] && return $?
+        check install_packages "${packages[*]}"
     fi
 
-    # Config template
+    echo -e "${BLUE}Configure refind template${RESET}"
     cp -r $DOTFILES/.config/refind $HOME/.config/
 
-    # Gen config
-    root=$(grep '/ ' /etc/fstab |sed 's/\ .*//' | awk '{ print $1 }')
-    swap=$(grep 'swap ' /etc/fstab |sed 's/\ .*//' | awk '{ print $1 }')
+    echo -e "${BLUE}Configure refind${RESET}"
+    root=$(df / | sed '1d' | awk '{ print $1 }')
+    swap=$(cat /proc/swaps | sed '1d' | awk '{ print $1 }')
+    root_uuid=$(sudo blkid $root | awk '{ print $5 }' | sed 's/"//'g)
+    swap_uuid=$(sudo blkid $swap | awk '{ print $4 }' | sed 's/"//'g)
     option='resume=<swap> root=<root> rw add_efi_memmap'
-    new_option="resume=$swap root=$root rw add_efi_memmap"
-    sudo cat $HOME/.config/refind/refind_template.conf | \
+    new_option="resume=$swap_uuid root=$root_uuid rw add_efi_memmap"
+    check sudo cat $HOME/.config/refind/refind_template.conf | \
         sed "s/$option/$new_option/g" | sudo tee /boot/EFI/refind/refind.conf > /dev/null
 
-    # Theme
-    sudo rm -rf /boot/EFI/refind/themes/rEFInd-minimal
-    sudo git clone https://github.com/EvanPurkhiser/rEFInd-minimal.git \
-              /boot/EFI/refind/themes/rEFInd-minimal
+    echo -e "${BLUE}Configure theme${RESET}"
+    [[ -d rEFInd-minimal ]] && rm -rf rEFInd-minimal
+    check git clone https://github.com/EvanPurkhiser/rEFInd-minimal.git
 
-    return 0
+    [[ -d /boot/EFI/refind/themes/rEFInd-minimal ]] && \
+            sudo rm -rf /boot/EFI/refind/themes/rEFInd-minimal
+    check sudo cp -r rEFInd-minimal /boot/EFI/refind/themes/
+    rm -rf rEFInd-minimal
 }
 
 setup_sh() {
-    echo 'Setting shell'
+    echo -e "${MAGENTA}Setting shell${RESET}"
 
     if [[ $INSTALL_PKGS == 1 ]]; then
+        echo -e "${CYAN}Installing shell packages${RESET}"
         packages=(git wget curl fzf glib2 zsh zsh-completions bash-completion
                   zsh-autosuggestions zsh-syntax-highlighting
                   zsh-vi-mode-git conda-zsh-completion)
-        install_packages "${packages[*]}"
-        [[ $? != 0 && $? != 1 ]] && return $?
+        check install_packages "${packages[*]}"
     fi
 
-    chsh -s /bin/zsh
-    sudo chsh -s /bin/zsh
+    echo -e "${BLUE}Configure default shell${RESET}"
+    check chsh -s /bin/zsh
+    check sudo chsh -s /bin/zsh
 
-    sudo rm -rf $HOME/.config/zsh
-    cp -r $DOTFILES/.config/zsh $HOME/.config
-    sudo chown -R root: $HOME/.config/zsh/zprofile
-    sudo ln -sf $HOME/.config/zsh/zprofile /etc/zsh
-    ln -sf $HOME/.config/zsh/zshrc $HOME/.config/zsh/.zshrc
+    echo -e "${BLUE}Configure shell${RESET}"
+    [[ -d $HOME/.config/zsh ]] && sudo rm -rf $HOME/.config/zsh
+    check cp -r $DOTFILES/.config/zsh $HOME/.config
+    check sudo chown -R root: $HOME/.config/zsh/zprofile
+    check sudo ln -sf $HOME/.config/zsh/zprofile /etc/zsh
+    check ln -sf $HOME/.config/zsh/zshrc $HOME/.config/zsh/.zshrc
 
-    # Sudo
-    sudo mkdir -p /root/.config/zsh
-    sudo ln -sf $HOME/.config/zsh/zshrc /root/.config/zsh/.zshrc
-    sudo ln -sf $HOME/.config/zsh/completion /root/.config/zsh
-    sudo ln -sf $HOME/.config/zsh/themes /root/.config/zsh
-    sudo ln -sf $HOME/.config/zsh/plugins /root/.config/zsh
-
-    return 0
+    echo -e "${BLUE}Configure shell for sudo${RESET}"
+    check sudo mkdir -p /root/.config/zsh
+    check sudo ln -sf $HOME/.config/zsh/zshrc /root/.config/zsh/.zshrc
+    check sudo ln -sf $HOME/.config/zsh/completion /root/.config/zsh
+    check sudo ln -sf $HOME/.config/zsh/themes /root/.config/zsh
+    check sudo ln -sf $HOME/.config/zsh/plugins /root/.config/zsh
 }
 
 setup_vim() {
-    echo 'Setting vim'
+    echo -e "${MAGENTA}Setting vim${RESET}"
 
     if [[ $INSTALL_PKGS == 1 ]]; then
-        packages=(curl python neovim python-pynvim python2-pynvim xsel xclip
-                  python-language-server python-pycodestyle python-jedi
-                  python-flake8-debugger flake8 autopep8 jupyter screen
-                  ccls lldb cmake gcc astyle gdb gdb-common lua-language-server
-                  bash-language-server vim-language-server
-                  octave hasktags ctags the_silver_searcher ripgrep
-                  zathura zathura-pdf-mupdf zathura-djvu zathura-ps
+        echo -e "${CYAN}Install vim packages${RESET}"
+        packages=(curl python python-pynvim python2-pynvim xsel xclip
+                  the_silver_searcher ripgrep)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install latest neovim-nightly${RESET}"
+        check rm -rf $HOME/.cache/yay/neovim-nightly-bin && \
+            yay -Y --gendb && yay -S neovim-nightly-bin --noconfirm
+
+        echo -e "${CYAN}Install python packages${RESET}"
+        packages=(python-language-server python-pycodestyle python-jedi
+                  python-flake8-debugger flake8 autopep8 jupyter screen)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install c/c++ packages${RESET}"
+        packages=(ccls lldb cmake gcc astyle gdb gdb-common lua-language-server)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install bash packages${RESET}"
+        packages=(bash-language-server)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install vimls packages${RESET}"
+        packages=(vim-language-server)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install octave packages${RESET}"
+        packages=(octave)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install haskell packages${RESET}"
+        packages=(hasktags ctags)
+        check install_packages "${packages[*]}"
+
+        echo -e "${CYAN}Install markdown packages${RESET}"
+        packages=(zathura zathura-pdf-mupdf zathura-djvu zathura-ps
                   yarn r r-markdown pandoc pandoc-citeproc)
+        check install_packages "${packages[*]}"
 
-        install_packages "${packages[*]}"
-        [[ $? != 0 && $? != 1 ]] && return $?
-
+        echo -e "${CYAN}Install latex packages${RESET}"
         groups=(texlive-most texlive-lang)
-        install_groups "${groups[*]}"
-        [[ $? != 0 && $? != 1 ]] && return $?
+        check install_groups "${groups[*]}"
     fi
 
-    rm -rf $HOME/.config/nvim
-    cp -r $DOTFILES/.config/nvim $HOME/.config
+    echo -e "${BLUE}Configure vim${RESET}"
+    [[ -d $HOME/.config/nvim ]] && rm -rf $HOME/.config/nvim
+    check cp -r $DOTFILES/.config/nvim $HOME/.config
 
-    rm -rf $HOME/.local/share/nvim/site
-    mkdir -p $HOME/.local/share/nvim
-    cp -r $DOTFILES/.local/share/nvim/site $HOME/.local/share/nvim
+    [[ -d $HOME/.local/share/nvim/site ]] && rm -rf $HOME/.local/share/nvim/site
+    check mkdir -p $HOME/.local/share/nvim
+    check cp -r $DOTFILES/.local/share/nvim/site $HOME/.local/share/nvim
 
-    # Packet manager
-    curl https://raw.githubusercontent.com/Shougo/dein.vim/master/bin/installer.sh > installer.sh
-    sh installer.sh ~/.cache/dein
-    rm installer.sh
+    echo -e "${BLUE}Configure flake${RESET}"
+    check cp $DOTFILES/.config/flake8 $HOME/.config
 
-    # Flake
-    cp $DOTFILES/.config/flake8 $HOME/.config
+    echo -e "${BLUE}Configure packet manager${RESET}"
+    check curl https://raw.githubusercontent.com/Shougo/dein.vim/master/bin/installer.sh > installer.sh
+    [[ -d $HOME/.cache/dein ]] && rm -rf $HOME/.cache/dein
+    check sh installer.sh $HOME/.cache/dein
+    check rm installer.sh
 
-    # Install stuff
-    nvim +DeinInstall +UpdateRemotePlugins '+TSInstall all' '+VimspectorInstall vscode-cpptools debugpy'
-
-    return 0
+    echo -e "${BLUE}Install packages${RESET}"
+    check nvim --clean '+source ~/.config/nvim/init.vim' +DeinInstall +UpdateRemotePlugins +qall
+    check nvim '+TSInstallSync all' +qall
 }
 
 clean_up() {
     current_dir=$(pwd)
 
-    cd $HOME/.dotfiles
-    find . -maxdepth 1 -type d,f ! -iname .git -exec rm -rvf {} \; > /dev/null 2>&1
-
-    cd $current_dir
-
-    return 0
+    check cd $HOME/.dotfiles
+    check find . -maxdepth 1 -type d,f ! -iname .git -exec rm -rvf {} \; > /dev/null 2>&1
+    check cd $current_dir
 }
 
 
@@ -480,33 +762,25 @@ done
 # If no option is specified
 [[ ${#opts[@]} == 0 ]] && opts=(wm sh boot vim)
 
-get_dotfiles
-[[ $? != 0 ]] && echo 'Error getting dotfiles' && exit
+get_dotfiles && echo
 
 if [[ $INSTALL_PKGS == 1 ]]; then
     setup_yay
-    [[ $? != 0 && $? != 1 ]] && echo 'Error getting yay' && exit
+    check sudo pacman -Sy archlinux-keyring --noconfirm && sudo pacman -Su --noconfirm
 fi
 
 for opt in ${opts[@]}; do
     if [[ $opt == wm ]]; then
         setup_wm
-        [[ $? != 0 ]] && echo 'Error setting wm' && exit
     elif [[ $opt == sh ]]; then
         setup_sh
-        [[ $? != 0 ]] && echo 'Error setting sh' && exit
     elif [[ $opt == boot ]]; then
         setup_boot
-        ret=$?
-        [[ $ret == 1 ]] && echo 'Skipping' && continue
-        [[ $ret != 0 ]] && echo 'Error setting boot' && exit
     elif [[ $opt == vim ]]; then
         setup_vim
-        [[ $? != 0 ]] && echo 'Error setting vim' && exit
     else
-        echo 'Unknown option' && exit
+        echo -e "${RED}Unknown option${RESET}" && exit
     fi
 done
 
 clean_up
-[[ $? != 0 ]] && echo 'Error cleaning' && exit
