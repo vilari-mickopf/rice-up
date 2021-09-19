@@ -65,7 +65,7 @@ setup_yay() {
     check makepkg -si --noconfirm
 
     cd $current_dir
-    [[ -d $HOME/yay ]] && rm -rf $HOME/yay
+    [[ -d $HOME/yay ]] && check rm -rf $HOME/yay
 }
 
 install_packages() {
@@ -109,7 +109,7 @@ get_dotfiles() {
         check install_packages "${packages[*]}"
     fi
 
-    [[ -d $DOTFILES ]] && rm -rf $DOTFILES
+    [[ -d $DOTFILES ]] && check rm -rf $DOTFILES
     check git clone https://github.com/vilari-mickopf/dotfiles.git $DOTFILES
 }
 
@@ -122,7 +122,7 @@ setup_i3() {
     fi
 
     echo -e "${BLUE}Configure i3${RESET}"
-    check rm -rf $HOME/.config/i3
+    [[ -d $HOME/.config/i3 ]] && check rm -rf $HOME/.config/i3
     check cp -r $DOTFILES/.config/i3 $HOME/.config
 
     echo -e "${BLUE}Configure user dirs${RESET}"
@@ -144,14 +144,14 @@ setup_i3() {
 
     # wait only 300ms instead of few seconds on authentication failure
     echo -e "${BLUE}Configure pam${RESET}"
-    check sudo rm -rf $HOME/.config/pam
+    [[ -d $HOME/.config/pam ]] && check sudo rm -rf $HOME/.config/pam
     check cp -r $DOTFILES/.config/pam $HOME/.config
     check sudo ln -sf $HOME/.config/pam/system-auth /etc/pam.d
     check sudo chown root: $HOME/.config/pam/system-auth
 
     # security -- disable locking the account on three consecutive authentication failures
     echo -e "${BLUE}Configure faillock${RESET}"
-    check sudo rm -rf $HOME/.config/security
+    [[ -d $HOME/.config/security ]] && check sudo rm -rf $HOME/.config/security
     check cp -r $DOTFILES/.config/security $HOME/.config
     check sudo ln -sf $HOME/.config/security/faillock.conf /etc/security
     check sudo chown root: $HOME/.config/security/faillock.conf
@@ -162,7 +162,7 @@ setup_i3() {
 
     # systemd
     echo -e "${BLUE}Configure journald${RESET}"
-    check sudo rm -rf $HOME/.config/systemd
+    [[ -d $HOME/.config/systemd ]] && check sudo rm -rf $HOME/.config/systemd
     check cp -r $DOTFILES/.config/systemd $HOME/.config
     check sudo ln -sf $HOME/.config/systemd/journald.conf /etc/systemd/
     check sudo chown root: $HOME/.config/systemd/journald.conf
@@ -214,12 +214,12 @@ setup_pulse() {
     current_dir=$(pwd)
 
     # audiocast
-    [[ -d $HOME/audiocast ]] && rm -rf $HOME/audiocast
+    [[ -d $HOME/audiocast ]] && check rm -rf $HOME/audiocast
     check git clone https://github.com/vilari-mickopf/audiocast.git $HOME/audiocast
     check cd $HOME/audiocast
     check ./install server
     check cd $current_dir
-    [[ -d $HOME/audiocast ]] && rm -rf $HOME/audiocast
+    [[ -d $HOME/audiocast ]] && check rm -rf $HOME/audiocast
 }
 
 setup_touch() {
@@ -231,7 +231,7 @@ setup_touch() {
     fi
 
     echo -e "${BLUE}Configure touchpad${RESET}"
-    check sudo rm -rf $HOME/.config/touchpad
+    [[ -d $HOME/.config/touchpad ]] && check sudo rm -rf $HOME/.config/touchpad
     check cp -r $DOTFILES/.config/touchpad $HOME/.config
     check sudo ln -sf $HOME/.config/touchpad/* /etc/X11/xorg.conf.d
     check sudo chown -R root: $HOME/.config/touchpad/
@@ -311,7 +311,7 @@ setup_term() {
 
     echo -e "${BLUE}Configure terminal${RESET}"
     current_dir=$(pwd)
-    [[ -d $HOME/.config/suckless/st ]] && rm -rf $HOME/.config/suckless/st
+    [[ -d $HOME/.config/suckless/st ]] && check rm -rf $HOME/.config/suckless/st
     check git clone https://github.com/vilari-mickopf/st.git $HOME/.config/suckless/st
     check cd $HOME/.config/suckless/st
     check sudo make clean install
@@ -379,9 +379,9 @@ setup_wicd() {
 
     # TODO: add wicd setup
     echo -e "${BLUE}Configure wicd${RESET}"
-    [[ -d $HOME/.config/wicd ]] && sudo rm -rf $HOME/.config/wicd
+    [[ -d $HOME/.config/wicd ]] && check sudo rm -rf $HOME/.config/wicd
     check cp -r $DOTFILES/.config/wicd $HOME/.config
-    check sudo rm -rf /etc/wicd/scripts
+    [[ -d /etc/wicd/scripts ]] && check sudo rm -rf /etc/wicd/scripts
     check sudo ln -sf $HOME/.config/wicd/scripts /etc/wicd
     check sudo chown -R root: $HOME/.config/wicd/scripts
 
@@ -398,7 +398,7 @@ setup_acpid() {
     fi
 
     echo -e "${BLUE}Configure acpi${RESET}"
-    check sudo rm -rf $HOME/.config/acpi
+    [[ -d $HOME/.config/acpi ]] && check sudo rm -rf $HOME/.config/acpi
     check cp -r $DOTFILES/.config/acpi $HOME/.config
     check sudo ln -sf $HOME/.config/acpi/handler.sh /etc/acpi
     check sudo chown root: $HOME/.config/acpi/handler.sh
@@ -416,7 +416,7 @@ setup_ly() {
     fi
 
     echo -e "${BLUE}Configure ly${RESET}"
-    check sudo rm -rf $HOME/.config/ly
+    [[ -d $HOME/.config/ly ]] && check sudo rm -rf $HOME/.config/ly
     check cp -r $DOTFILES/.config/ly $HOME/.config
     check sudo ln -sf $HOME/.config/ly/config.ini /etc/ly
 
@@ -433,7 +433,7 @@ setup_mkinitcpio() {
     fi
 
     echo -e "${BLUE}Configure mkinitcpio${RESET}"
-    check sudo rm -rf $HOME/.config/mkinitcpio
+    [[ -d $HOME/.config/mkinitcpio ]] && check sudo rm -rf $HOME/.config/mkinitcpio
     check cp -r $DOTFILES/.config/mkinitcpio $HOME/.config
     check sudo ln -sf $HOME/.config/mkinitcpio/mkinitcpio.conf /etc
     check sudo chown root: $HOME/.config/mkinitcpio/mkinitcpio.conf
@@ -452,7 +452,7 @@ setup_oblogout() {
     fi
 
     echo -e "${BLUE}Configure oblogout${RESET}"
-    check sudo rm -rf $HOME/.config/oblogout
+    [[ -d $HOME/.config/oblogout ]] && check sudo rm -rf $HOME/.config/oblogout
     check cp -r $DOTFILES/.config/oblogout $HOME/.config
     check sudo ln -sf $HOME/.config/oblogout/oblogout.conf /etc/oblogout.conf
     check sudo chown root: $HOME/.config/oblogout/oblogout.conf
@@ -591,12 +591,10 @@ setup_boot() {
 
     echo -e "${BLUE}Configure refind${RESET}"
     root=$(df / | sed '1d' | awk '{ print $1 }')
-    root_uuid=$(sudo blkid $root | grep -o '\bPARTUUID=.*' \
-                                 | sed 's/^PARTUUID="//' | sed 's/"$//')
-
     swap=$(cat /proc/swaps | sed '1d' | awk '{ print $1 }')
-    swap_uuid=$(sudo blkid $swap | grep -o '\bPARTUUID=.*' \
-                                 | sed 's/^PARTUUID="//' | sed 's/"$//')
+
+    root_uuid=$(sudo blkid $root | grep -o '\bPARTUUID=.*' | sed 's/"//'g)
+    swap_uuid=$(sudo blkid $swap | grep -o '\bPARTUUID=.*' | sed 's/"//'g)
 
     option='resume=<swap> root=<root> rw add_efi_memmap'
     new_option="resume=$swap_uuid root=$root_uuid rw add_efi_memmap"
@@ -604,13 +602,13 @@ setup_boot() {
         sed "s/$option/$new_option/g" | sudo tee /boot/EFI/refind/refind.conf > /dev/null
 
     echo -e "${BLUE}Configure theme${RESET}"
-    [[ -d rEFInd-minimal ]] && rm -rf rEFInd-minimal
-    check git clone https://github.com/EvanPurkhiser/rEFInd-minimal.git
+    [[ -d $HOME/rEFInd-minimal ]] && rm -rf $HOME/rEFInd-minimal
+    check git clone https://github.com/EvanPurkhiser/rEFInd-minimal.git $HOME/rEFInd-minimal
 
     [[ -d /boot/EFI/refind/themes/rEFInd-minimal ]] && \
-            sudo rm -rf /boot/EFI/refind/themes/rEFInd-minimal
-    check sudo cp -r rEFInd-minimal /boot/EFI/refind/themes/
-    rm -rf rEFInd-minimal
+            check sudo rm -rf /boot/EFI/refind/themes/rEFInd-minimal
+    check sudo cp -r $HOME/rEFInd-minimal /boot/EFI/refind/themes/
+    [[ -d $HOME/rEFInd-minimal ]] && check rm -rf $HOME/rEFInd-minimal
 }
 
 setup_sh() {
@@ -629,7 +627,7 @@ setup_sh() {
     check sudo chsh -s /bin/zsh
 
     echo -e "${BLUE}Configure shell${RESET}"
-    [[ -d $HOME/.config/zsh ]] && sudo rm -rf $HOME/.config/zsh
+    [[ -d $HOME/.config/zsh ]] && check sudo rm -rf $HOME/.config/zsh
     check cp -r $DOTFILES/.config/zsh $HOME/.config
     check sudo chown -R root: $HOME/.config/zsh/zprofile
     check sudo ln -sf $HOME/.config/zsh/zprofile /etc/zsh
@@ -692,10 +690,10 @@ setup_vim() {
     fi
 
     echo -e "${BLUE}Configure vim${RESET}"
-    [[ -d $HOME/.config/nvim ]] && rm -rf $HOME/.config/nvim
+    [[ -d $HOME/.config/nvim ]] && check rm -rf $HOME/.config/nvim
     check cp -r $DOTFILES/.config/nvim $HOME/.config
 
-    [[ -d $HOME/.local/share/nvim/site ]] && rm -rf $HOME/.local/share/nvim/site
+    [[ -d $HOME/.local/share/nvim/site ]] && check rm -rf $HOME/.local/share/nvim/site
     check mkdir -p $HOME/.local/share/nvim
     check cp -r $DOTFILES/.local/share/nvim/site $HOME/.local/share/nvim
 
@@ -704,7 +702,7 @@ setup_vim() {
 
     echo -e "${BLUE}Configure packet manager${RESET}"
     check curl https://raw.githubusercontent.com/Shougo/dein.vim/master/bin/installer.sh > installer.sh
-    [[ -d $HOME/.cache/dein ]] && rm -rf $HOME/.cache/dein
+    [[ -d $HOME/.cache/dein ]] && check rm -rf $HOME/.cache/dein
     check sh installer.sh $HOME/.cache/dein
     check rm installer.sh
 
