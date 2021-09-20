@@ -125,6 +125,8 @@ setup_i3() {
     echo -e "${BLUE}Configure i3${RESET}"
     [[ -d $HOME/.config/i3 ]] && check rm -rf $HOME/.config/i3
     check cp -r $DOTFILES/.config/i3 $HOME/.config
+    check sudo mkdir /root/.config
+    check sudo ln -sf $HOME/.config/i3 /root/.config
 
     echo -e "${BLUE}Configure user dirs${RESET}"
     mkdir -p ~/Projects ~/Music ~/Pictures ~/Videos ~/Downloads
@@ -298,8 +300,9 @@ setup_xorg() {
     fi
 
     echo -e "${BLUE}Configure xresources${RESET}"
-    check cp -r $DOTFILES/.config/Xresources.d $HOME/.config
-    check sudo ln -sf $HOME/.config/Xresources.d /root/.config
+    check cp -r $DOTFILES/.config/xorg $HOME/.config
+    check sudo mkdir /root/.config
+    check sudo ln -sf $HOME/.config/xorg /root/.config
 }
 
 setup_term() {
