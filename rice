@@ -111,6 +111,7 @@ get_dotfiles() {
 
     [[ -d $DOTFILES ]] && check rm -rf $DOTFILES
     check git clone https://github.com/vilari-mickopf/dotfiles.git $DOTFILES
+    check git --git-dir=$DOTFILES/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
 }
 
 setup_i3() {
@@ -478,7 +479,6 @@ setup_git() {
 
     echo -e "${BLUE}Configure git${RESET}"
     check cp -r $DOTFILES/.config/git $HOME/.config
-    check git --git-dir=$HOME/.dotfiles/.git/ --work-tree=$HOME/ config status.showUntrackedFiles no
 }
 
 setup_upower() {
