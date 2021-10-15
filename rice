@@ -367,8 +367,8 @@ setup_ncmpcpp() {
     check cp -r $DOTFILES/.config/mpd $HOME/.config
 
     echo -e "${BLUE}Start mpd services${RESET}"
-    check systemctl --user start mpd
     check systemctl --user enable mpd
+    # check systemctl --user start mpd
 
     echo -e "${BLUE}Configure ncmpcpp${RESET}"
     check cp -r $DOTFILES/.config/ncmpcpp $HOME/.config
@@ -391,7 +391,7 @@ setup_wicd() {
 
     echo -e "${BLUE}Start wicd services${RESET}"
     check sudo systemctl enable wicd
-    check sudo systemctl start wicd
+    # check sudo systemctl start wicd
 }
 
 setup_acpid() {
@@ -409,7 +409,7 @@ setup_acpid() {
 
     echo -e "${BLUE}Start acpi services${RESET}"
     check sudo systemctl enable acpid
-    check sudo systemctl start acpid
+    # check sudo systemctl start acpid
 }
 
 setup_ly() {
@@ -426,7 +426,7 @@ setup_ly() {
 
     echo -e "${BLUE}Start ly services${RESET}"
     check sudo systemctl enable ly
-    check sudo systemctl start ly
+    # check sudo systemctl start ly
 }
 
 setup_mkinitcpio() {
@@ -493,7 +493,7 @@ setup_upower() {
 
     echo -e "${BLUE}Start upower services${RESET}"
     check sudo systemctl enable upower
-    check sudo systemctl start upower
+    # check sudo systemctl start upower
 }
 
 setup_wm() {
@@ -711,7 +711,7 @@ setup_vim() {
 
     echo -e "${BLUE}Install packages${RESET}"
     check nvim --clean '+source ~/.config/nvim/init.vim' +DeinInstall +UpdateRemotePlugins +qall
-    check nvim '+TSInstallSync all' +qall
+    # check nvim '+TSInstall all' '+VimspectorInstall vscode-cpptools debugpy' +qall
 }
 
 clean_up() {
